@@ -26,6 +26,7 @@ https://huggingface.co/datasets/katebor/SciVQA
 papers:
 
 dataset + methodology
+SciGraphQA (part of sciVQA dataset)
 https://arxiv.org/pdf/2308.03349
 
 DePlot
@@ -36,4 +37,7 @@ https://arxiv.org/pdf/2210.03347v2
 
 StructChart
 https://arxiv.org/pdf/2309.11268v5
+
+ChartQA
+https://aclanthology.org/2022.findings-acl.177.pdf
 
