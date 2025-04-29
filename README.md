@@ -6,9 +6,12 @@
 - mPLUG-owl-7B (Flamingo)
 - GPT3
 
-## Transformation of graphs
+## Transformation of graphs/charts
+- OGR (Optical Graph Recognotion) / OCR (Optical character recognition)
 - DePLot
 - Matcha
+- Pix2Struct
+- StructChart
 
 ## Metrics
 - BERTscore
@@ -28,4 +31,9 @@ https://arxiv.org/pdf/2308.03349
 DePlot
 https://arxiv.org/abs/2212.10505
 
+Pix2Struct
+https://arxiv.org/pdf/2210.03347v2
+
+StructChart
+https://arxiv.org/pdf/2309.11268v5
 

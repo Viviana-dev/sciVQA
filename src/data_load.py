@@ -35,7 +35,7 @@ processor = BlipProcessor.from_pretrained("Salesforce/blip-vqa-base")
 model = BlipForQuestionAnswering.from_pretrained("Salesforce/blip-vqa-base")
 
 # Load sample from dataset
-sample = dataset[0]
+sample = ds[0]
 img_path = image_root / sample["image_file"]
 question = sample["question"]
 
