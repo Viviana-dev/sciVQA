@@ -7,7 +7,7 @@
 - GPT3
 
 ## Transformation of graphs/charts
-- OGR (Optical Graph Recognotion) / OCR (Optical character recognition)
+- OGR (Optical Graph Recognotion) / OCR (Optical character recognition) eg. ChartOCR model
 - DePLot
 - Matcha
 - Pix2Struct
