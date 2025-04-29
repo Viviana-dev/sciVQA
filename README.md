@@ -6,7 +6,7 @@
 - mPLUG-owl-7B (Flamingo)
 - GPT3
 
-## Transformation of graphs/charts
+## Transformation of graphs/charts (chart data extraction)
 - OGR (Optical Graph Recognotion) / OCR (Optical character recognition) eg. ChartOCR model
 - DePLot
 - Matcha
