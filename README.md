@@ -41,3 +41,5 @@ https://arxiv.org/pdf/2309.11268v5
 ChartQA
 https://aclanthology.org/2022.findings-acl.177.pdf
 
+Leadboard (Chart Question Answering on ChartQA):
+https://paperswithcode.com/sota/chart-question-answering-on-chartqa
