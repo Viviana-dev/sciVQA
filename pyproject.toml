@@ -1,0 +1,26 @@
+[tool.black]
+line-length = 120
+skip-string-normalization = false
+preview = true
+target-version = ["py311"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+py_version=311
+profile = "black"
+line_length = 120
+skip_gitignore = true
+src_paths = ["src"]

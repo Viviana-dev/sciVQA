@@ -241,4 +241,6 @@ fabric.properties
 
 data/**/*.png
 data/**/*.csv
+data/**/*.pt
 .idea/*
+.DS_Store

@@ -1,9 +1,14 @@
 from pathlib import Path
-from datasets import load_dataset, config
-from PIL import Image
-from transformers import BlipProcessor, BlipForQuestionAnswering
-from transformers import ViltProcessor, ViltForQuestionAnswering
+
 import torch
+from datasets import config, load_dataset
+from PIL import Image
+from transformers import (
+    BlipForQuestionAnswering,
+    BlipProcessor,
+    ViltForQuestionAnswering,
+    ViltProcessor,
+)
 
 # Load ViLT VQA model and processor
 processor = ViltProcessor.from_pretrained("dandelin/vilt-b32-finetuned-vqa")
@@ -16,7 +21,7 @@ model = ViltForQuestionAnswering.from_pretrained("dandelin/vilt-b32-finetuned-vq
 # Load sample from dataset
 config.DOWNLOADED_DATASETS_PATH = Path("/var/huggingface/datasets")
 
-image_root = Path("./sciVQA/data/images/train/images_train") 
+image_root = Path("./sciVQA/data/images/train/images_train")
 
 ds = load_dataset("katebor/SciVQA")
 sample = ds["train"][57]

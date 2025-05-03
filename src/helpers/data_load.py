@@ -1,10 +1,18 @@
+import io
+import sys
+from os import listdir, makedirs, path, remove, rename
+
+from PIL import Image
+
+sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 import shutil
-from typing import Literal
-import pandas as pd
-from os import listdir, path, makedirs, remove, rename
-from constants import DATA_PATH
+from typing import Generator, Literal
 from zipfile import ZipFile
+
+import pandas as pd
 import requests
+
+from helpers.constants import CSV_PATH, DATA_PATH, IMAGES_PATH
 
 
 def downlaode_csv(train: bool = True, test: bool = True, validation: bool = True):
@@ -22,11 +30,11 @@ def downlaode_csv(train: bool = True, test: bool = True, validation: bool = True
             if not path.exists(DATA_PATH):
                 print(f"Creating directory: {DATA_PATH}")
                 makedirs(DATA_PATH)
-            if not path.exists(path.join(DATA_PATH, "csv")):
-                print(f"Creating directory: {path.join(DATA_PATH, 'csv')}")
-                makedirs(path.join(DATA_PATH, "csv"))
+            if not path.exists(path.join(CSV_PATH)):
+                print(f"Creating directory: {path.join(CSV_PATH)}")
+                makedirs(path.join(CSV_PATH))
             print(f"Downloading {split_name} dataset...")
-            csv_path = path.join(DATA_PATH, "csv", f"{split_name}.csv")
+            csv_path = path.join(CSV_PATH, f"{split_name}.csv")
 
             pd.read_json(json_path, lines=True).to_csv(csv_path, index=False)
 
@@ -43,14 +51,14 @@ def downlaode_images(train: bool = True, test: bool = True, validation: bool = T
     for split_name, flag in requested_files.items():
         if flag:
             # check if the directory with the unzipped images exists, if it exist skip downlaoding
-            if path.exists(path.join(DATA_PATH, "images", split_name)):
+            if path.exists(path.join(IMAGES_PATH, split_name)):
                 print(f"{split_name} images already downloaded.")
                 continue
 
-            zip_path = path.join(DATA_PATH, "images", f"{split_name}.zip")
-            if not path.exists(path.join(DATA_PATH, "images")):
+            zip_path = path.join(IMAGES_PATH, f"{split_name}.zip")
+            if not path.exists(path.join(IMAGES_PATH)):
                 print(f"Creating directory: {path.join(DATA_PATH, 'images')}")
-                makedirs(path.join(DATA_PATH, "images"))
+                makedirs(path.join(IMAGES_PATH))
             print(f"Downloading {split_name} images...")
             if not path.exists(zip_path):
                 response = requests.get(files[split_name])
@@ -59,13 +67,13 @@ def downlaode_images(train: bool = True, test: bool = True, validation: bool = T
             print(f"Unzipping {split_name} images...")
 
             with ZipFile(zip_path, "r") as zip_ref:
-                zip_ref.extractall(path.join(DATA_PATH, "images"))
+                zip_ref.extractall(path.join(IMAGES_PATH))
 
-            for unzipped_folders in listdir(path.join(DATA_PATH, "images")):
+            for unzipped_folders in listdir(path.join(IMAGES_PATH)):
                 if unzipped_folders.startswith("images_"):
                     rename(
-                        path.join(DATA_PATH, "images", unzipped_folders),
-                        path.join(DATA_PATH, "images", split_name),
+                        path.join(IMAGES_PATH, unzipped_folders),
+                        path.join(IMAGES_PATH, split_name),
                     )
                     print(f"Renamed {unzipped_folders} to {split_name}")
                     break
@@ -73,7 +81,7 @@ def downlaode_images(train: bool = True, test: bool = True, validation: bool = T
             print(f"Deleting {split_name} zip file...")
             remove(zip_path)
 
-    macosx_folder = path.join(DATA_PATH, "images", "__MACOSX")
+    macosx_folder = path.join(IMAGES_PATH, "__MACOSX")
     if path.exists(macosx_folder):
         shutil.rmtree(macosx_folder)
 
@@ -95,7 +103,7 @@ def load_datasets(
     """
 
     def get_dataset(split_name):
-        csv_path = path.join(DATA_PATH, "csv", f"{split_name}.csv")
+        csv_path = path.join(CSV_PATH, f"{split_name}.csv")
         if not path.exists(csv_path):
             downlaode_csv(**{split_name: True})
         return pd.read_csv(csv_path)
@@ -123,16 +131,25 @@ def load_image_files(
     """
 
     def get_images(split_name):
-        images_path = path.join(DATA_PATH, "images", split_name)
+        images_path = path.join(IMAGES_PATH, split_name)
         if not path.exists(images_path):
             downlaode_images(**{split_name: True})
-        return [
-            path.join(images_path, f)
-            for f in listdir(images_path)
-            if f.endswith(".png")
-        ]
+        return [path.join(images_path, f) for f in listdir(images_path) if f.endswith(".png")]
 
     splits = {"train": train, "test": test, "validation": validation}
     images = {name: get_images(name) for name, flag in splits.items() if flag}
 
     return images
+
+
+def stream_images(file_paths: list[str]) -> Generator[Image.Image, None, None]:
+    """
+    Yield image data from a list of file paths.
+    Args:
+        file_paths (list[str]): List of image file paths.
+    Yields:
+        bytes: The image data.
+    """
+    for file_path in file_paths:
+        with Image.open(file_path) as img:
+            yield img.copy()

@@ -1,7 +1,7 @@
-from PIL import Image
-from torchvision import transforms
 import matplotlib.pyplot as plt
 import torch
+from PIL import Image
+from torchvision import transforms
 
 # Load your image
 img_path = "data/images/train/images_train/2009.12539v1-Figure3-1.png"

@@ -1,6 +1,9 @@
-from pathlib import Path
 from os import path
+from pathlib import Path
 
 BASE_PATH = Path(__file__).resolve().parent.parent.parent
 SRC_PATH = path.join(BASE_PATH, "src")
 DATA_PATH = path.join(BASE_PATH, "data")
+PREPROCESSED_IMAGES_PATH = path.join(DATA_PATH, "preprocessed")
+IMAGES_PATH = path.join(DATA_PATH, "images")
+CSV_PATH = path.join(DATA_PATH, "csv")
