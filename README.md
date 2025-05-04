@@ -1,5 +1,5 @@
-# SciVQA  
-## Zero-shot setting 
+# SciVQA
+## Zero-shot setting
 - BLIP2 - 2.7B
 - LLAVA - 13B , LLAVA - 7B
 - OpenFlamingo v2 - 7B
