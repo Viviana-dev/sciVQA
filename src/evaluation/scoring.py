@@ -29,7 +29,7 @@ def generate_golden_file():
             golden_df = pd.concat(
                 [golden_df, pd.DataFrame({"instance_id": [instance_id], "answer": [answer]})], ignore_index=True
             )
-        golden_df.to_json(golden_file_path, orient="records", lines=True)
+        golden_df.to_json(golden_file_path, orient="records")
         print(f"Golden file created at {golden_file_path}")
 
 

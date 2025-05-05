@@ -1,7 +1,10 @@
 black~=25.1.0
 datasets~=3.5.1
 evaluate~=0.4.3
+hf_xet~=1.1.0
 isort~=6.0.1
+ninja~=1.11.1.4
+packaging~=23.1
 pandas~=2.2.3
 pillow~=11.2.1
 qwen-vl-utils~=0.0.11
@@ -10,4 +13,5 @@ sentencepiece~=0.2.0
 timm~=1.0.15
 torch~=2.7.0
 torchvision~=0.22.0
-transformer~=4.51.3
+tqdm~=4.67.1
+transformers~=4.51.3

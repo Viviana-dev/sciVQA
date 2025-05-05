@@ -36,7 +36,8 @@ def downlaode_csv(train: bool = True, test: bool = True, validation: bool = True
             print(f"Downloading {split_name} dataset...")
             csv_path = path.join(CSV_PATH, f"{split_name}.csv")
 
-            pd.read_json(json_path, lines=True).to_csv(csv_path, index=False)
+            js_data = pd.read_json(json_path)
+            js_data.to_csv(csv_path, index=False)
 
 
 def downlaode_images(train: bool = True, test: bool = True, validation: bool = True):
@@ -179,7 +180,8 @@ def load_images(dataset_path: str, train: bool = False, test: bool = False, vali
     split_name = next(iter(selected_splits.keys()))
     images_path = path.join(IMAGES_PATH, split_name)
     if not path.exists(images_path):
-        raise ValueError(f"Images path {images_path} does not exist")
+        print(f"Image sub folder {split_name} path {images_path} does not exist")
+        downlaode_images()
 
     image_path = path.join(images_path, dataset_path)
     if not path.exists(image_path):
@@ -207,7 +209,8 @@ def load_real_image_path(dataset_path: str, train: bool = False, test: bool = Fa
     split_name = next(iter(selected_splits.keys()))
     images_path = path.join(IMAGES_PATH, split_name)
     if not path.exists(images_path):
-        raise ValueError(f"Images path {images_path} does not exist")
+        print(f"Image sub folder {split_name} path {images_path} does not exist")
+        downlaode_images()
 
     image_path = path.join(images_path, dataset_path)
     if not path.exists(image_path):
