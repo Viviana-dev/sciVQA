@@ -1,6 +1,6 @@
 import torch
 from PIL import Image
-from transformers import AutoImageProcessor
+from transformers import AutoImageProcessor, Siglip2ImageProcessor
 
 
 def expand2square(pil_img, background_color):
@@ -17,11 +17,13 @@ def expand2square(pil_img, background_color):
         return result
 
 
-def process_images(images, image_processor: AutoImageProcessor):
+def process_images(images, image_processor: Siglip2ImageProcessor):
     new_images = []
     for image in images:
-        image = expand2square(image, tuple(int(1 * 255) for x in image_processor.image_mean))
-        image = image_processor.preprocess(image, return_tensors="pt", size=image.size)["pixel_values"][0]
+        # image = expand2square(image, tuple([255, 255, 255]))
+        image = image_processor.preprocess(image, return_tensors="pt", do_resize=False, size=(512, 512))[
+            "pixel_values"
+        ][0]
         new_images.append(image)
 
     if all(x.shape == new_images[0].shape for x in new_images):
@@ -30,13 +32,13 @@ def process_images(images, image_processor: AutoImageProcessor):
 
 
 def get_image_processor(model_name, image_size):
-    image_processor: AutoImageProcessor = AutoImageProcessor.from_pretrained(model_name, use_fast=False)
+    image_processor: Siglip2ImageProcessor = AutoImageProcessor.from_pretrained(model_name, use_fast=False)
     if image_processor.size != image_size:
         image_processor.size = image_size
     return image_processor
 
 
-def tensor_to_image(tensor, image_processor: AutoImageProcessor):
+def tensor_to_image(tensor, image_processor: Siglip2ImageProcessor):
     """
     Converts a processed tensor back to a PIL image and displays it.
     """

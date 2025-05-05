@@ -1,5 +1,5 @@
-import io
 import sys
+from email.mime import base
 from os import listdir, makedirs, path, remove, rename
 
 from PIL import Image
@@ -109,6 +109,12 @@ def load_datasets(
         return pd.read_csv(csv_path)
 
     splits = {"train": train, "test": test, "validation": validation}
+    selected_splits = {name: flag for name, flag in splits.items() if flag}
+
+    if len(selected_splits) == 1:
+        split_name = next(iter(selected_splits.keys()))
+        return get_dataset(split_name)
+
     datasets = {name: get_dataset(name) for name, flag in splits.items() if flag}
 
     return datasets
@@ -153,3 +159,57 @@ def stream_images(file_paths: list[str]) -> Generator[Image.Image, None, None]:
     for file_path in file_paths:
         with Image.open(file_path) as img:
             yield img.copy()
+
+
+def load_images(dataset_path: str, train: bool = False, test: bool = False, validation: bool = True) -> Image.Image:
+    """
+    Load the image based ont the file name provided by the dataset path.
+    Args:
+        dataset_path (str): The path to the dataset.
+        train (bool): If True, load the train images.
+        test (bool): If True, load the test images.
+        validation (bool): If True, load the validation images.
+    Returns:
+        the Image object.
+    """
+    splits = {"train": train, "test": test, "validation": validation}
+    selected_splits = {name: flag for name, flag in splits.items() if flag}
+    if len(selected_splits) != 1:
+        raise ValueError("Please provide only one of train, test or validation")
+    split_name = next(iter(selected_splits.keys()))
+    images_path = path.join(IMAGES_PATH, split_name)
+    if not path.exists(images_path):
+        raise ValueError(f"Images path {images_path} does not exist")
+
+    image_path = path.join(images_path, dataset_path)
+    if not path.exists(image_path):
+        raise ValueError(f"Image path {image_path} does not exist")
+    with Image.open(image_path) as img:
+        img = img.convert("RGB")
+        return img.copy()
+
+
+def load_real_image_path(dataset_path: str, train: bool = False, test: bool = False, validation: bool = True) -> str:
+    """
+    Load the image based ont the file name provided by the dataset path.
+    Args:
+        dataset_path (str): The path to the dataset.
+        train (bool): If True, load the train images.
+        test (bool): If True, load the test images.
+        validation (bool): If True, load the validation images.
+    Returns:
+        the Image object.
+    """
+    splits = {"train": train, "test": test, "validation": validation}
+    selected_splits = {name: flag for name, flag in splits.items() if flag}
+    if len(selected_splits) != 1:
+        raise ValueError("Please provide only one of train, test or validation")
+    split_name = next(iter(selected_splits.keys()))
+    images_path = path.join(IMAGES_PATH, split_name)
+    if not path.exists(images_path):
+        raise ValueError(f"Images path {images_path} does not exist")
+
+    image_path = path.join(images_path, dataset_path)
+    if not path.exists(image_path):
+        raise ValueError(f"Image path {image_path} does not exist")
+    return image_path
