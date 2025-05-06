@@ -1,6 +1,14 @@
+import sys
+from os import path
+
 import torch
 from PIL import Image
 from transformers import AutoProcessor, Pix2StructForConditionalGeneration
+
+sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
+
+from helpers.data_load import load_datasets, load_real_image_path
+from preprocessing.ocr_utils import visualize_ocr_boxes
 
 # Cached DePlot objects
 #
@@ -51,3 +59,15 @@ def deploit_table(img: Image.Image, device: str | torch.device | None = None) ->
 
     table_md = _deplot_processor.decode(generated_ids[0], skip_special_tokens=True).strip()
     return table_md
+
+
+if __name__ == "__main__":
+    train_dataset = load_datasets(train=True, test=False, validation=False)
+    random_dataset = train_dataset.sample(1)
+    for _, row in random_dataset.iterrows():
+        img_path = load_real_image_path(row["image_file"], train=True)
+        print(f"Image path: {img_path}")
+        visualize_ocr_boxes(img_path, lang="eng", conf_thr=60, color="red", show=True)
+        image = Image.open(img_path).convert("RGB")
+        table = deploit_table(image)
+        print(f"DePlot table:\n{table}")

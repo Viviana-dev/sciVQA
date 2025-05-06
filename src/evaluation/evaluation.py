@@ -1,59 +1,111 @@
-import ast
 import csv
+import random
 import sys
 from os import makedirs, path
+from pathlib import Path
 
 import pandas as pd
 import torch
 import tqdm
+from PIL import Image
 from qwen_vl_utils import process_vision_info
 from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
-from helpers.constants import PREDICITION_PATH
+from helpers.constants import BASE_PATH, PREDICITION_PATH
 from helpers.data_load import load_datasets, load_real_image_path
+from preprocessing.graph_prep import process_single_data_row
+from preprocessing.ocr_utils import visualize_ocr_boxes
 
 
 def build_dynamic_prompt(entry, split="validation"):
+    instance_id = entry["instance_id"]
+    image_path = entry["image_file"]
     question = entry["question"]
-    qa_type = entry["qa_pair_type"]
+    qa_type_raw = entry["qa_pair_type"]
     caption = entry.get("caption", "")
     figure_type = entry.get("figure_type", "figure")
     compound = entry.get("compound", False)
     figs_numb = entry.get("figs_numb", 0)
     answer_options = entry.get("answer_options", "")
 
+    # ── Normalise QA‑pair type tokens ──────────────────────────────────────────
+    if isinstance(qa_type_raw, str):
+        qa_types = {t.strip().lower() for t in qa_type_raw.split(";")}
+    elif isinstance(qa_type_raw, (list, tuple, set)):
+        qa_types = {str(t).strip().lower() for t in qa_type_raw}
+    else:
+        qa_types = set()
+
+    # ── Figure metadata ───────────────────────────────────────────────────────
     prompt = f"You are looking at a {figure_type}"
     if compound:
         prompt += f" with {figs_numb} subfigures"
     prompt += "."
 
     if caption:
-        prompt += f" The caption reads: '{caption}'."
+        prompt += f"\nThe caption reads: '{caption}'."
 
-    prompt += f" Question: {question}"
+    # ── OCR region descriptions ───────────────────────────────────────────────
+    ocr_boxes_norm, boxes = process_single_data_row(entry, split_name=split)
+    region_lines = []
+    for x1, y1, x2, y2, text in ocr_boxes_norm:
+        x1, y1, x2, y2 = map(lambda v: round(v, 2), (x1, y1, x2, y2))
+        region_lines.append(f'<box>({x1},{y1},{x2},{y2}): "{text.strip()}"</box>')
+    region_block = "\n".join(region_lines)
+    prompt += (
+        "\nThe following chart regions were detected with OCR (they may contain" " errors):\n" + region_block + "\n"
+    )
 
-    if "unanswerable" in qa_type:
+    # ── Early exit for unanswerable cases ─────────────────────────────────────
+    if "unanswerable" in qa_types:
+        prompt += (
+            f"\nQuestion: {question}"
+            "\nIf you cannot answer from the figure and caption alone, respond with"
+            " 'unanswerable'."
+            "\nAnswer:"
+        )
         return prompt.strip()
-    else:
-        if "closed-ended" in qa_type:
-            if "finite answer set" in qa_type:
-                if "binary" in qa_type:
-                    prompt += " Please only answer 'yes' or 'no'."
-                else:
-                    # Normalize options: handle ABCD or A,B,C,D
-                    if split in ("train", "validation") and "," not in answer_options and len(answer_options) == 4:
-                        options = ",".join(list(answer_options))
-                    else:
-                        options = answer_options
-                    prompt += f" Please choose from the following options: {options}."
-        elif "infinite answer set" in qa_type:
-            prompt += " Provide a short direct answer."
-        elif "visual" in qa_type:
-            prompt += " Pay attention to visual aspects like color, position, and shape."
-        elif "non-visual" in qa_type:
-            prompt += " Base your answer only on data values, not visual features."
+
+    # ── Visual / non‑visual cues ──────────────────────────────────────────────
+    if "visual" in qa_types:
+        prompt += "\n[Visual cue] Pay attention to colour, position, shape, size," " height, or direction."
+    elif "non-visual" in qa_types:
+        prompt += "\n[Data-only cue] Base your answer on numeric or textual values," " not visual features."
+
+    # ── Answer‑set guidance ───────────────────────────────────────────────────
+    if "infinite answer set" in qa_types:
+        prompt += "\nProvide a short direct answer."
+    elif "finite answer set" in qa_types:
+        if "binary" in qa_types:
+            prompt += "\nPlease answer with 'yes' or 'no' only."
+        else:
+            if isinstance(answer_options, list):
+                options = [str(o).strip() for o in answer_options]
+            else:
+                options = [o.strip() for o in str(answer_options).split(",") if o.strip()]
+            prompt += f"\nPlease choose one of the following options: {options}."
+
+    # ── Final question & fallback ─────────────────────────────────────────────
+    prompt += (
+        f"\nQuestion: {question}"
+        "\nIf the answer cannot be inferred from the figure and caption, reply that the answer is not answerable !!"
+        "\nAnswer:"
+    )
+
+    # choose randomly betwwen true and false
+    random_state: bool = random.choice([True, False])
+    if random_state:
+        save_path = Path(path.join(BASE_PATH, "sample", instance_id))
+        save_path.mkdir(parents=True, exist_ok=True)
+        prompt_file_path = path.join(save_path, "prompt.txt")
+        image_file_path = path.join(save_path, "image.png")
+        root_image_path = load_real_image_path(image_path, **{split: True})
+        image = Image.open(root_image_path).convert("RGB")
+        visualize_ocr_boxes(image, boxes=boxes, color="red", show=False, save_path=image_file_path)
+        with open(prompt_file_path, "w", encoding="utf-8") as f:
+            f.write(prompt)
 
     return prompt.strip()
 
@@ -64,7 +116,7 @@ def evaluate_model(processor, model):
     total_rows = len(validation_dataset)
 
     results = []
-    for i, entry in tqdm.tqdm(
+    for _, entry in tqdm.tqdm(
         validation_dataset.iterrows(), total=total_rows, desc="Evaluating", unit="entry", unit_scale=True
     ):
         instance_id = entry["instance_id"]
@@ -93,7 +145,7 @@ def evaluate_model(processor, model):
         )
         if device.type == "cuda":
             inputs = inputs.to(device)
-        generated_ids = model.generate(**inputs, max_new_tokens=128)
+        generated_ids = model.generate(**inputs, max_new_tokens=64)
         generated_ids_trimmed = [out_ids[len(in_ids) :] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)]
         answer = processor.batch_decode(
             generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False

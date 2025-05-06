@@ -1,37 +1,60 @@
 import sys
 from os import path
 
-import pytesseract
 from PIL import Image, ImageDraw, ImageFont
+from surya.detection import DetectionPredictor
+from surya.recognition import RecognitionPredictor
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 from helpers.data_load import load_datasets, load_real_image_path
 from preprocessing.bbox import BBox
 
+_surya_recognizer: RecognitionPredictor | None = None
+_surya_detector: DetectionPredictor | None = None
 
-def extract_ocr_boxes(img: Image.Image, lang: str = "eng", conf_thr: int = 60) -> list[BBox]:
-    """Run Tesseract OCR and return cleaned BBoxes."""
 
-    data = pytesseract.image_to_data(img, lang=lang, output_type=pytesseract.Output.DICT)
+def _get_surya_predictors() -> tuple[RecognitionPredictor, DetectionPredictor]:
+    """Return cached Surya recognition & detection predictors (GPU if avail)."""
+    global _surya_recognizer, _surya_detector
+    if _surya_recognizer is None:
+        _surya_recognizer = RecognitionPredictor()
+    if _surya_detector is None:
+        _surya_detector = DetectionPredictor()
+    return _surya_recognizer, _surya_detector
+
+
+def extract_ocr_boxes(img: Image.Image, lang: str = "en", conf_thr: int = 60) -> list[BBox]:
+    """Run Surya OCR and return cleaned BBoxes."""
+
+    recognizer, detector = _get_surya_predictors()
+
+    # Surya accepts a list of images and list of language lists
+    predictions = recognizer([img], [[lang] if lang else None], detector)
+    page = predictions[0]  # single‑image batch
 
     boxes: list[BBox] = []
-    n = len(data["text"])
-    for i in range(n):
-        if int(data["conf"][i]) < conf_thr:
+    for line in page.text_lines:
+        conf_f = line.confidence
+        if conf_f * 100 < conf_thr:
             continue
-        text = " ".join(data["text"][i].strip().split())
+        text = line.text
+
         if not text:
             continue
-        box = BBox(
-            x=data["left"][i],
-            y=data["top"][i],
-            w=data["width"][i],
-            h=data["height"][i],
-            text=text,
-            conf=int(data["conf"][i]),
+
+        # line["bbox"] is (x1, y1, x2, y2)
+        x1, y1, x2, y2 = line.bbox
+        boxes.append(
+            BBox(
+                x=int(x1),
+                y=int(y1),
+                w=int(x2 - x1),
+                h=int(y2 - y1),
+                text=text,
+                conf=int(conf_f * 100),
+            )
         )
-        boxes.append(box)
 
     # Deduplicate identical strings that overlap heavily (keeps 1st occurrence)
     uniq = {}
@@ -42,23 +65,21 @@ def extract_ocr_boxes(img: Image.Image, lang: str = "eng", conf_thr: int = 60) -
 
 
 def visualize_ocr_boxes(
-    img_path: str,
-    lang: str = "eng",
-    conf_thr: int = 60,
+    img: Image.Image,
+    boxes: list[BBox],
     color: str = "red",
     show: bool = True,
     save_path: str | None = None,
 ) -> list[BBox]:
-    """Run Tesseract on *img_path* and draw the resulting bounding boxes.
+    """Run Surya on *img_path* and draw the resulting bounding boxes.
 
     Parameters
     ----------
-    img_path : str
-        Path to the input image.
-    lang : str, default "eng"
-        OCR language(s) recognised by Tesseract.
-    conf_thr : int, default 60
-        Minimum confidence required to keep a token.
+    img : PIL.Image.Image
+        The image to annotate.  It is converted to RGB if not already.
+    boxes : list[BBox]
+        The list of OCR bounding boxes to draw.  Each box must have
+        attributes *x*, *y*, *w*, *h*, and *text*.
     color : str, default "red"
         Outline/text colour for the visualisation.
     show : bool, default True
@@ -72,8 +93,7 @@ def visualize_ocr_boxes(
     list[BBox]
         The list of deduplicated OCR bounding boxes.
     """
-    img = Image.open(img_path).convert("RGB")
-    boxes = extract_ocr_boxes(img, lang=lang, conf_thr=conf_thr)
+    img = img.convert("RGB")
 
     draw = ImageDraw.Draw(img)
     try:
@@ -101,9 +121,12 @@ def visualize_ocr_boxes(
 
 
 if __name__ == "__main__":
+    _get_surya_predictors()  # warm‑up once
     train_dataset = load_datasets(train=True, test=False, validation=False)
     random_dataset = train_dataset.sample(1)
     for _, row in random_dataset.iterrows():
         img_path = load_real_image_path(row["image_file"], train=True)
+        img = Image.open(img_path).convert("RGB")
+        boxes = extract_ocr_boxes(img, lang="en", conf_thr=60)
         print(f"Image path: {img_path}")
-        visualize_ocr_boxes(img_path, lang="eng", conf_thr=60, color="red", show=True)
+        visualize_ocr_boxes(img, boxes=boxes, color="red", show=True)
