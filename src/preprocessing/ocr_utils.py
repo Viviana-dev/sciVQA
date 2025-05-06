@@ -24,7 +24,7 @@ def _get_surya_predictors() -> tuple[RecognitionPredictor, DetectionPredictor]:
     return _surya_recognizer, _surya_detector
 
 
-def extract_ocr_boxes(img: Image.Image, lang: str = "en", conf_thr: int = 60) -> list[BBox]:
+def extract_ocr_boxes(img: Image.Image, lang: str = "en", conf_thr: int = 51) -> list[BBox]:
     """Run Surya OCR and return cleaned BBoxes."""
 
     recognizer, detector = _get_surya_predictors()

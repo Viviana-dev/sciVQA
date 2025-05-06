@@ -244,3 +244,4 @@ data/**/*.csv
 data/**/*.pt
 .idea/*
 .DS_Store
+sample/
