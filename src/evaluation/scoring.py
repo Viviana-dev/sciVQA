@@ -1,7 +1,6 @@
 import csv
 import sys
 from os import makedirs, path
-from shlex import quote
 
 import pandas as pd
 from evaluate import load

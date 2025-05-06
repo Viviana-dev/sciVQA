@@ -162,7 +162,7 @@ def stream_images(file_paths: list[str]) -> Generator[Image.Image, None, None]:
             yield img.copy()
 
 
-def load_images(dataset_path: str, train: bool = False, test: bool = False, validation: bool = True) -> Image.Image:
+def load_images(dataset_path: str, train: bool = False, test: bool = False, validation: bool = False) -> Image.Image:
     """
     Load the image based ont the file name provided by the dataset path.
     Args:
@@ -191,7 +191,7 @@ def load_images(dataset_path: str, train: bool = False, test: bool = False, vali
         return img.copy()
 
 
-def load_real_image_path(dataset_path: str, train: bool = False, test: bool = False, validation: bool = True) -> str:
+def load_real_image_path(dataset_path: str, train: bool = False, test: bool = False, validation: bool = False) -> str:
     """
     Load the image based ont the file name provided by the dataset path.
     Args:
