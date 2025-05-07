@@ -245,3 +245,4 @@ data/**/*.pt
 .idea/*
 .DS_Store
 sample/
+no-ocr-v4/
