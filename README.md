@@ -46,3 +46,27 @@ https://paperswithcode.com/sota/chart-question-answering-on-chartqa
 
 ## Fine-tuned model versions Qwen2.5-VL
 Version 1: LoRa_versions/adapter_config.json
+change all the attention and MLP layers
+we saved a checkpoint, we didn't finish the training 
+
+Version 2: as the tutorial: https://huggingface.co/learn/cookbook/en/fine_tuning_vlm_trl#2-load-dataset-   "target_modules"=["q_proj", "v_proj"]
+change only two attention layers (query and value)
+
+Version 3: "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj"]
+change only attention layers (query, key, value, output) of the text decoder
+
+Version 4: "target_modules": ["up_proj", "gate_proj", "down_proj"]
+change all the MLP layers of the text decoder
+
+Version 5: "target_modules": ["layers.26.mlp.up_proj", "layers.27.mlp.down_proj"]
+change only final MLP layers of the text decoder
+
+Version 6: same set up different models (see Leaderboard https://huggingface.co/spaces/opencompass/open_vlm_leaderboard )
+
+Version 7: same set up different data (ChartQA)
+
+Version 8: "target_modules": ["visual.blocks.X.attn.qkv", "visual.blocks.X.attn.proj"]
+change only attention layers of the visual encoder (visual encoder use a single qkv linear layer instead of separate q_proj, k_proj, v_proj)
+
+## Error_analysis
+error_analysis/error_analysis_zeroshot_no-ocr-v4
