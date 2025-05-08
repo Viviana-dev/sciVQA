@@ -43,3 +43,6 @@ https://aclanthology.org/2022.findings-acl.177.pdf
 
 Leadboard (Chart Question Answering on ChartQA):
 https://paperswithcode.com/sota/chart-question-answering-on-chartqa
+
+## Fine-tuned model versions Qwen2.5-VL
+Version 1: LoRa_versions/adapter_config.json
