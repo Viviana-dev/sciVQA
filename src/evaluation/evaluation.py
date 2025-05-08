@@ -2,6 +2,7 @@ import ast
 import csv
 import random
 import re
+import shutil
 import sys
 from os import makedirs, path
 from pathlib import Path
@@ -17,8 +18,8 @@ sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 from helpers.constants import BASE_PATH, PREDICITION_PATH
 from helpers.data_load import load_datasets, load_real_image_path
-from preprocessing.graph_prep import process_single_data_row
-from preprocessing.ocr_utils import visualize_ocr_boxes
+
+VERSION = "no-ocr-v4"
 
 
 def parse_qa_types(qa_type_raw: str) -> set[str]:
@@ -61,7 +62,6 @@ def build_dynamic_prompt(entry, split="validation"):
 
     qa_types = parse_qa_types(qa_type_raw)
 
-    # ── Figure metadata ───────────────────────────────────────────────────────
     prompt = f"You are looking at a {figure_type}"
     if compound:
         prompt += f" with {figs_numb} subfigures"
@@ -70,33 +70,26 @@ def build_dynamic_prompt(entry, split="validation"):
     if caption:
         prompt += f"\nThe caption reads: '{caption}'."
 
-    # ── OCR region descriptions ───────────────────────────────────────────────
-    ocr_boxes_norm, boxes = process_single_data_row(entry, split_name=split)
-    region_lines = []
-    for x1, y1, x2, y2, text in ocr_boxes_norm:
-        x1, y1, x2, y2 = map(lambda v: round(v, 2), (x1, y1, x2, y2))
-        region_lines.append(f'<box>({x1},{y1},{x2},{y2}): "{text.strip()}"</box>')
-    region_block = "\n".join(region_lines)
-    prompt += "\nThe following chart regions were detected with OCR (they may contain errors):\n" + region_block + "\n"
     prompt += f"\nQuestion: {question}"
 
-    # ── Early exit for unanswerable cases ─────────────────────────────────────
     if "unanswerable" in qa_types:
         prompt += (
-            "\nIf the answer cannot be inferred from the figure and caption, reply that the answer is not answerable !!"
+            "\nIf the answer cannot be inferred from the figure and caption, reply 'It is not possible to answer this question based only on the provided data.'"
             "\nResponse:"
         )
         return prompt.strip(), random_state
 
-    # ── Visual / non‑visual cues ──────────────────────────────────────────────
     if "visual" in qa_types:
-        prompt += "\n[Visual cue] Pay attention to colour, position, shape, size," " height, or direction."
+        prompt += "\n[Visual cue] Pay attention to color, position, shape, size, height, or direction."
     elif "non-visual" in qa_types:
-        prompt += "\n[Data-only cue] Base your answer on numeric or textual values," " not visual features."
+        prompt += "\n[Data-only cue] Focus your answer more on numeric or textual values."
+    prompt += "\nPlease also consider the caption of the figure to answer the question."
 
-    # ── Answer‑set guidance ───────────────────────────────────────────────────
     if "infinite answer set" in qa_types:
-        prompt += "\nRespond with a concise, one-word or very short phrase. No full sentences, no explanations."
+        prompt += (
+            "\nRespond with a concise, one-word or very short phrase. No full sentences, no explanations."
+            "\nIf the answer is numeric, use digits only and retain any suffix (e.g., %, k, etc.)."
+        )
     elif "finite answer set" in qa_types:
         if "binary" in qa_types:
             prompt += "\nPlease answer with 'Yes' or 'No' only."
@@ -106,21 +99,20 @@ def build_dynamic_prompt(entry, split="validation"):
             prompt += f"\nPlease choose one of the following options: {options}."
             prompt += "\nRespond only with the choosen options keyword, no explanations and no full sentences."
 
-    # ── Final question & fallback ─────────────────────────────────────────────
     prompt += "\nResponse:"
 
-    # choose randomly betwwen true and false
-
     if random_state:
-        save_path = Path(path.join(BASE_PATH, "sample", instance_id))
+        save_path = Path(path.join(BASE_PATH, "sample", VERSION, instance_id))
         save_path.mkdir(parents=True, exist_ok=True)
         prompt_file_path = path.join(save_path, "prompt.txt")
         image_file_path = path.join(save_path, "image.png")
         root_image_path = load_real_image_path(image_path, **{split: True})
         image = Image.open(root_image_path).convert("RGB")
-        visualize_ocr_boxes(image, boxes=boxes, color="red", show=False, save_path=image_file_path)
+        image.save(image_file_path)
+        # visualize_ocr_boxes(image, boxes=boxes, color="red", show=False, save_path=image_file_path)
         with open(prompt_file_path, "w", encoding="utf-8") as f:
             f.write(f"QA-Type: {qa_type_raw}\n\n{prompt}")
+            f.write(f"Figure type: {figure_type}")
 
     return prompt.strip(), random_state
 
@@ -170,12 +162,16 @@ def evaluate_model(processor, model):
         results.append({"instance_id": instance_id, "answer_pred": answer[0]})
 
         # save the answer to the prompt.txt if the file exists
-        save_path = Path(path.join(BASE_PATH, "sample", instance_id))
+        save_path = Path(path.join(BASE_PATH, "sample", VERSION, instance_id))
         prompt_file_path = path.join(save_path, "prompt.txt")
         if state and path.exists(prompt_file_path):
-            with open(prompt_file_path, "a", encoding="utf-8") as f:
-                f.write(f"\n\n\nAnswer: {answer[0]}")
-                f.write(f"\nGold answer: {gold_answer}")
+            if answer[0] == gold_answer:
+                # remove the folder even if the folder is not empty
+                shutil.rmtree(save_path)
+            else:
+                with open(prompt_file_path, "a", encoding="utf-8") as f:
+                    f.write(f"\n\n\nAnswer: {answer[0]}")
+                    f.write(f"\nGold answer: {gold_answer}")
 
     return results
 
