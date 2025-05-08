@@ -245,3 +245,5 @@ data/**/*.pt
 .idea/*
 .DS_Store
 sample/
+wandb/
+output/
