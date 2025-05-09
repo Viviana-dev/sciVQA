@@ -8,7 +8,7 @@ from rouge_score import rouge_scorer
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
-from helpers.constants import PREDICITION_PATH
+from helpers.constants import METRIC_PATH, PREDICITION_PATH, SCORES_PATH
 from helpers.data_load import load_datasets
 
 
@@ -87,11 +87,11 @@ def bertS(predictions: list[str], references: list[str], merged=None):
     return f1, precision, recall, merged
 
 
-def main():
-    output_file_path = path.join(PREDICITION_PATH, "output")
-    if not path.exists(output_file_path):
-        print(f"Creating directory: {output_file_path}")
-        makedirs(output_file_path)
+def compute_evaluation_scores(version: str):
+    scores_path = path.join(SCORES_PATH, version)
+    if not path.exists(scores_path):
+        makedirs(scores_path)
+
     golden_file_path = path.join(PREDICITION_PATH, "golden", "golden.json")
     if not path.exists(golden_file_path):
         generate_golden_file()
@@ -103,7 +103,7 @@ def main():
             f"Prediction file not found at {prediction_file_path}. Please run the prediction script first."
         )
 
-    output_filename = path.join(output_file_path, "scores.txt")
+    output_filename = path.join(scores_path, "scores.txt")
     output_file = open(output_filename, "w")
 
     gold_df = pd.read_json(golden_file_path)
@@ -123,8 +123,6 @@ def main():
         predictions, references, "rougeL", merged
     )
     bert_score_f1, bert_score_precision, bert_score_recall, merged = bertS(predictions, references, merged)
-
-    merged.to_csv(path.join(prediction_foler_path, "merged.csv"), index=False, quoting=csv.QUOTE_ALL)
 
     output_file.write("rouge1.f1: " + str(rouge1_score_f1) + "\n")
     print(f"rouge1.f1: {rouge1_score_f1}")
@@ -150,7 +148,6 @@ def main():
     output_file.close()
     list_of_metric_dfs = []
 
-    print("print nested based on figure type and then for every question type")
     for figure_type in merged["figure_type"].unique():
         figure_df = merged[merged["figure_type"] == figure_type]
         metric_figure = []
@@ -175,7 +172,7 @@ def main():
         list_of_metric_dfs.append(metric_df)
 
     # join the dataframe on one csv and add a headline to every csv table
-    with open(path.join(prediction_foler_path, "metrics.csv"), "w") as f:
+    with open(path.join(METRIC_PATH, version, "metrics.csv"), "w") as f:
         for i, metric_df in enumerate(list_of_metric_dfs):
             if i != 0:
                 f.write("\n")
@@ -183,8 +180,7 @@ def main():
             f.write(f"QA Type: {metric_df['qa_type'].iloc[0]}\n")
             metric_df.to_csv(f, index=False, quoting=csv.QUOTE_ALL)
             f.write("\n")
-    print(f"Metrics saved to {path.join(prediction_foler_path, 'metrics.csv')}")
 
 
 if __name__ == "__main__":
-    main()
+    compute_evaluation_scores()

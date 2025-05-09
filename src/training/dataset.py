@@ -3,7 +3,6 @@ from os import path
 from typing import Literal
 
 import pandas as pd
-from qwen_vl_utils import process_vision_info
 from torch.utils.data import Dataset
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
@@ -15,21 +14,42 @@ from helpers.data_load import load_datasets, load_real_image_path
 def convert_to_conversation(entry: pd.Series, split: str) -> list[dict[str, any]]:
     prompt_text, _ = build_dynamic_prompt(entry, split=split)
 
-    # absolute or resolved file path to the image, so the Trainer/Processor
-    # can find it even after changing working dirs
+    system_message: str = """You are a Vision Language Model specialized in interpreting visual data from chart images.
+Your task is to analyze the provided chart image and respond to queries with concise answers, usually a single word, number, or short phrase.
+The charts include a variety of types (e.g., line charts, bar charts) and contain colors, labels, and text.
+Focus on delivering accurate, succinct answers based on the visual information. Avoid additional explanation unless absolutely necessary."""
+
     image_path: str = load_real_image_path(entry["image_file"], **{split: True})
-    conversation = [
+    conversation: list[dict[str, any]] = [
+        {
+            "role": "system",
+            "content": [
+                {
+                    "type": "text",
+                    "text": system_message,
+                }
+            ],
+        },
         {
             "role": "user",
             "content": [
-                {"type": "image", "image": image_path},
-                {"type": "text", "text": prompt_text},
+                {
+                    "type": "image",
+                    "image": image_path,
+                },
+                {
+                    "type": "text",
+                    "text": prompt_text,
+                },
             ],
         },
         {
             "role": "assistant",
             "content": [
-                {"type": "text", "text": entry.get("answer", "")},
+                {
+                    "type": "text",
+                    "text": entry.get("answer", ""),
+                },
             ],
         },
     ]

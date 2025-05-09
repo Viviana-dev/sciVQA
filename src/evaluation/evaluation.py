@@ -10,16 +10,15 @@ from pathlib import Path
 import pandas as pd
 import torch
 import tqdm
+from peft import PeftModel
 from PIL import Image
 from qwen_vl_utils import process_vision_info
 from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
-from helpers.constants import BASE_PATH, PREDICITION_PATH
+from helpers.constants import BASE_PATH, LORA_PATH, PREDICITION_PATH
 from helpers.data_load import load_datasets, load_real_image_path
-
-VERSION = "no-ocr-v4"
 
 
 def parse_qa_types(qa_type_raw: str) -> set[str]:
@@ -48,7 +47,7 @@ def parse_qa_types(qa_type_raw: str) -> set[str]:
     return found
 
 
-def build_dynamic_prompt(entry, split="validation"):
+def build_dynamic_prompt(entry, split="validation", save_sample_path: Path = None):
     instance_id = entry["instance_id"]
     image_path = entry["image_file"]
     question = entry["question"]
@@ -101,8 +100,8 @@ def build_dynamic_prompt(entry, split="validation"):
 
     prompt += "\nResponse:"
 
-    if random_state:
-        save_path = Path(path.join(BASE_PATH, "sample", VERSION, instance_id))
+    if random_state and save_sample_path:
+        save_path = Path(path.join(save_sample_path, instance_id))
         save_path.mkdir(parents=True, exist_ok=True)
         prompt_file_path = path.join(save_path, "prompt.txt")
         image_file_path = path.join(save_path, "image.png")
@@ -111,13 +110,14 @@ def build_dynamic_prompt(entry, split="validation"):
         image.save(image_file_path)
         # visualize_ocr_boxes(image, boxes=boxes, color="red", show=False, save_path=image_file_path)
         with open(prompt_file_path, "w", encoding="utf-8") as f:
-            f.write(f"QA-Type: {qa_type_raw}\n\n{prompt}")
+            f.write(f"QA-Type: {qa_type_raw}")
             f.write(f"Figure type: {figure_type}")
+            f.write(f"\n\n{prompt}")
 
     return prompt.strip(), random_state
 
 
-def evaluate_model(processor, model):
+def evaluate_model(processor, model, save_sample_path: Path):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     validation_dataset = load_datasets(validation=True, train=False, test=False)
     total_rows = len(validation_dataset)
@@ -162,7 +162,7 @@ def evaluate_model(processor, model):
         results.append({"instance_id": instance_id, "answer_pred": answer[0]})
 
         # save the answer to the prompt.txt if the file exists
-        save_path = Path(path.join(BASE_PATH, "sample", VERSION, instance_id))
+        save_path = Path(path.join(save_sample_path, instance_id))
         prompt_file_path = path.join(save_path, "prompt.txt")
         if state and path.exists(prompt_file_path):
             if answer[0] == gold_answer:
@@ -176,17 +176,24 @@ def evaluate_model(processor, model):
     return results
 
 
-def main():
-    model_name = "Qwen/Qwen2.5-VL-7B-Instruct"
+def evaluate_model_predictions(adapter_path: str, model_name: str, version: str):
     processor = AutoProcessor.from_pretrained(model_name, use_fast=True)
-    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+    base_model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
         model_name,
         torch_dtype=torch.bfloat16,
         attn_implementation="flash_attention_2",
         device_map="auto",
     )
+    model = PeftModel.from_pretrained(
+        base_model,
+        adapter_path,
+        torch_dtype=torch.bfloat16,
+        device_map="auto",
+    )
 
-    results = evaluate_model(processor, model)
+    sample_path = Path(path.join(BASE_PATH, "sample", version))
+
+    results = evaluate_model(processor, model, sample_path)
     # save results to a csv file
     prediction_file_path = path.join(PREDICITION_PATH, "predictions", "predictions.csv")
     if not path.exists(path.dirname(prediction_file_path)):
@@ -197,7 +204,3 @@ def main():
     df = pd.DataFrame(results)
     df.to_csv(prediction_file_path, index=False, quoting=csv.QUOTE_ALL)
     print(f"Predictions saved to {prediction_file_path}")
-
-
-if __name__ == "__main__":
-    main()
