@@ -1,211 +1,166 @@
 import random
 import sys
-from os import environ, makedirs, path
+from os import environ, path
 from pathlib import Path
 
 import torch
-from peft import LoraConfig, get_peft_model
+import wandb
+from peft import LoraConfig, TaskType, get_peft_model
 from qwen_vl_utils import process_vision_info
+from torch.utils.data import Dataset
 from transformers import (
-    AutoProcessor,
     Qwen2_5_VLForConditionalGeneration,
-    Trainer,
-    TrainingArguments,
+    Qwen2_5_VLProcessor,
+    Qwen2VLProcessor,
 )
+from trl import SFTConfig, SFTTrainer
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
-from helpers.constants import LORA_PATH
 from training.dataset import SciVQAConversationDataset
-
-local_rank = None
-
-# Set PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True in the environment
-# to allow for dynamic memory allocation
+from training.gpu_cleaner import clear_memory
 
 environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 
-def rank0_print(*args):
-    if local_rank == 0 or local_rank == "0" or local_rank is None:
-        print(*args)
+def trainLoraModel(
+    model_name: str,
+    version: str,
+    output_dir: Path,
+    batch_size: int,
+    grad_acc: int,
+    epochs: int,
+    lr: float,
+    compute_dtype: torch.dtype,
+    lora_rank: int,
+    lora_alpha: int,
+    lora_dropout: float,
+    target_modules: list[str],
+) -> None:
+    clear_memory()
 
-
-def find_target_linear_names(model, num_lora_modules=-1, lora_namespan_exclude=[], verbose=True):
-    linear_cls = torch.nn.modules.Linear
-    embedding_cls = torch.nn.modules.Embedding
-    lora_module_names = []
-
-    for name, module in model.named_modules():
-        if any(ex_keyword in name for ex_keyword in lora_namespan_exclude):
-            continue
-        if isinstance(module, (linear_cls, embedding_cls)):
-            lora_module_names.append(name)
-
-    if num_lora_modules > 0:
-        lora_module_names = lora_module_names[-num_lora_modules:]
-    if verbose:
-        rank0_print(f"Found {len(lora_module_names)} lora modules: {lora_module_names}")
-    return lora_module_names
-
-
-def set_requires_grad(parameters, requires_grad):
-    for p in parameters:
-        p.requires_grad = requires_grad
-
-
-def main() -> None:
-    global local_rank
-
-    SEED = 42
-    MODEL_NAME = "Qwen/Qwen2.5-VL-7B-Instruct"
-    VERSION = "no-ocr-v4"
-    OUTPUT_DIR = Path(path.join(LORA_PATH, VERSION))
-    if not OUTPUT_DIR.exists():
-        makedirs(OUTPUT_DIR, exist_ok=True)
-    BATCH_SIZE = 12
-    GRAD_ACC = 2
-    EPOCHS = 25
-    LR = 1e-4
-    COMPUTE_DTYPE = torch.bfloat16
-    LORA_RANK = 32  # Lora rank is the number of low-rank matrices to be used in the LoRA module: higher rank means more parameters
-    LORA_ALPHA = 32  # Lora alpha is the scaling factor for the low-rank matrices: higher alpha means more parameters
-    LORA_DROPOUT = 0.05
-    FREEZE_VISION = True
-    FREEZE_MERGER = True
-    FREEZE_LLM = False
-
-    random.seed(SEED)
-    torch.manual_seed(SEED)
+    random.seed(42)
+    torch.manual_seed(42)
 
     # Load the SciVQA conversation‑style datasets
-    train_dataset = SciVQAConversationDataset(split="train")
-    eval_dataset = SciVQAConversationDataset(split="validation")
+    train_dataset: Dataset = SciVQAConversationDataset(split="train")
+    eval_dataset: Dataset = SciVQAConversationDataset(split="validation")
 
-    processor = AutoProcessor.from_pretrained(MODEL_NAME, use_fast=True)
-    processor.padding_side = "left"
+    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+        model_name,
+        torch_dtype=compute_dtype,
+        device_map="auto",
+        attn_implementation="flash_attention_2",
+        trust_remote_code=True,
+        use_cache=False,
+    )
+
+    processor = Qwen2_5_VLProcessor.from_pretrained(model_name, use_fast=False)
+
+    peft_config = LoraConfig(
+        lora_alpha=lora_alpha,
+        lora_dropout=lora_dropout,
+        r=lora_rank,
+        bias="none",
+        target_modules=target_modules,
+        task_type=TaskType.CAUSAL_LM,
+    )
+
+    peft_model = get_peft_model(model, peft_config)
+    peft_model.print_trainable_parameters()
+
+    training_args = SFTConfig(
+        run_name=f"LoRa-{version}",
+        output_dir=output_dir,  # Directory to save the model
+        num_train_epochs=epochs,  # Number of training epochs
+        per_device_train_batch_size=batch_size,  # Batch size for training
+        per_device_eval_batch_size=batch_size,  # Batch size for evaluation
+        gradient_accumulation_steps=grad_acc,  # Steps to accumulate gradients
+        gradient_checkpointing=True,  # Enable gradient checkpointing for memory efficiency
+        # Optimizer and scheduler settings
+        optim="adamw_torch_fused",  # Optimizer type
+        learning_rate=lr,  # Learning rate for training
+        lr_scheduler_type="cosine",  # Type of learning rate scheduler
+        # Logging and evaluation
+        logging_steps=10,  # Steps interval for logging
+        eval_steps=100,  # Steps interval for evaluation
+        eval_strategy="steps",  # Strategy for evaluation
+        save_strategy="steps",  # Strategy for saving the model
+        save_steps=100,  # Steps interval for saving
+        metric_for_best_model="eval_loss",  # Metric to evaluate the best model
+        greater_is_better=False,  # Whether higher metric values are better
+        load_best_model_at_end=True,  # Load the best model after training
+        save_total_limit=3,  # Limit the number of saved models
+        # Mixed precision and gradient settings
+        bf16=True,  # Use bfloat16 precision
+        warmup_ratio=0.03,  # Ratio of total steps for warmup
+        # Hub and reporting
+        report_to="wandb",  # Reporting tool for tracking metrics
+        # Gradient checkpointing settings
+        gradient_checkpointing_kwargs={"use_reentrant": False},  # Options for gradient checkpointing
+        # Dataset configuration
+        dataset_text_field="",  # Text field in dataset
+        dataset_kwargs={"skip_prepare_dataset": True},  # Additional dataset options
+        remove_unused_columns=False,  # Whether to remove unused columns in the dataset
+    )
+
+    wandb.init(
+        project=f"qwen2.5-VL-7b-instruct-chart",
+        name=f"{version}",
+        config=training_args,
+    )
 
     def collate_fn(batch):
 
         all_messages = [item["messages"] for item in batch]
+        texts = processor.apply_chat_template(all_messages, tokenize=False)
 
-        texts = processor.apply_chat_template(all_messages, tokenize=False, add_generation_prompt=False)
+        image_inputs, _ = process_vision_info(all_messages)
 
-        image_inputs, video_inputs = process_vision_info(all_messages)
-
-        model_inputs = processor(
-            padding_side="left",
+        batch = processor(
             text=texts,
             images=image_inputs,
-            videos=video_inputs,
-            padding=True,
             return_tensors="pt",
+            padding=True,
         )
-        # labels are just the input_ids, shifted inside `model.prepare_decoder_input_ids_from_labels`
-        model_inputs["labels"] = model_inputs["input_ids"].clone()
-        return model_inputs
 
-    # Load the model
-    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-        MODEL_NAME,
-        torch_dtype=COMPUTE_DTYPE,
-        device_map="auto",
-        attn_implementation="flash_attention_2",
-    )
-    # freeze vision and merger parameters
-    vision_model_params = model.visual.parameters()
-    set_requires_grad(vision_model_params, not FREEZE_VISION)
-    merger_params = model.visual.merger.parameters()
-    set_requires_grad(merger_params, not FREEZE_MERGER)
+        # The labels are the input_ids, and we mask the padding tokens in the loss computation
+        labels = batch["input_ids"].clone()  # Clone input IDs for labels
+        labels[labels == processor.tokenizer.pad_token_id] = -100  # Mask padding tokens in labels
 
-    # unfreeze llm
-    lm_head = model.lm_head.parameters()
-    set_requires_grad(lm_head, not FREEZE_LLM)
+        # Ignore the image token index in the loss computation (model specific)
+        if isinstance(processor, Qwen2VLProcessor):  # Check if the processor is Qwen2VLProcessor
+            image_tokens = [151652, 151653, 151655]  # Specific image token IDs for Qwen2VLProcessor
+        else:
+            image_tokens = [
+                processor.tokenizer.convert_tokens_to_ids(processor.image_token)
+            ]  # Convert image token to ID
 
-    llm_params = model.model.parameters()
-    set_requires_grad(llm_params, not FREEZE_LLM)
+        # Mask image token IDs in the labels
+        for image_token_id in image_tokens:
+            labels[labels == image_token_id] = -100  # Mask image token IDs in labels
 
-    lora_namespan_exclude = ["lm_head", "embed_tokens"]
+        batch["labels"] = labels
 
-    if not FREEZE_LLM:
-        lora_namespan_exclude += ["visual"]
+        return batch
 
-    peft_config = LoraConfig(
-        r=LORA_RANK,
-        lora_alpha=LORA_ALPHA,
-        target_modules=find_target_linear_names(
-            model, lora_namespan_exclude=lora_namespan_exclude, num_lora_modules=-1
-        ),
-        lora_dropout=LORA_DROPOUT,
-    )
-
-    rank0_print("Adding LoRA to the model...")
-    model = get_peft_model(model, peft_config)
-
-    if not FREEZE_VISION:
-        for name, param in model.named_parameters():
-            if "visual" in name:
-                param.requires_grad = True
-
-    if not FREEZE_MERGER:
-        for name, param in model.named_parameters():
-            if "merger" in name:
-                param.requires_grad = True
-
-    # Set up the training arguments
-    training_args = TrainingArguments(
-        run_name=f"Lora-{VERSION}",
-        output_dir=OUTPUT_DIR,
-        per_device_train_batch_size=BATCH_SIZE,
-        per_device_eval_batch_size=BATCH_SIZE,
-        gradient_accumulation_steps=GRAD_ACC,
-        num_train_epochs=EPOCHS,
-        learning_rate=LR,
-        logging_dir=path.join(OUTPUT_DIR, "logs"),
-        logging_steps=100,
-        save_steps=100,
-        eval_strategy="steps",
-        eval_steps=100,
-        save_total_limit=2,
-        bf16=True,
-        optim="paged_adamw_32bit",
-        report_to="wandb",
-        remove_unused_columns=False,
-        load_best_model_at_end=True,
-        label_names=["labels"],
-    )
-
-    data_collator = collate_fn
-    trainer = Trainer(
+    trainer = SFTTrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
-        data_collator=data_collator,
-        processing_class=processor,
+        data_collator=collate_fn,
+        peft_config=peft_config,
+        processing_class=processor.tokenizer,
     )
 
     # Start training
-    rank0_print("Starting training...")
+    print("Starting training...")
     trainer.train()
-    rank0_print("Training complete.")
+    print("Training complete.")
     # Save the model
-    rank0_print("Saving the model...")
-    trainer.save_model(OUTPUT_DIR)
-    rank0_print("Model saved.")
-    rank0_print("Saving the processor...")
-    processor.save_pretrained(OUTPUT_DIR)
-    rank0_print("Processor saved.")
-    rank0_print("Saving the training arguments...")
-    training_args.save_to_json(path.join(OUTPUT_DIR, "training_args.json"))
-    rank0_print("Training arguments saved.")
-    rank0_print("Saving the LoRA config...")
-    model.peft_config.save_pretrained(OUTPUT_DIR)
-    rank0_print("LoRA config saved.")
-    rank0_print("Saving the model config...")
-    model.config.save_pretrained(OUTPUT_DIR)
-    rank0_print("Model config saved.")
+    trainer.save_model(path.join(output_dir, "model"))
 
 
 if __name__ == "__main__":
-    main()
+    trainLoraModel()
