@@ -81,4 +81,4 @@ Version 9: same set up different models (see Leaderboard https://huggingface.co/
 Version 10: same set up different data (ChartQA)
 
 ## Error_analysis
-error_analysis/error_analysis_zeroshot_no-ocr-v4.csv: error analysis of the best zero-shot generated data
+error_analysis/error_analysis_zeroshot_no-ocr-v4.xlxs: error analysis of the best zero-shot generated data
