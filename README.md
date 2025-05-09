@@ -74,9 +74,11 @@ change only attention layers of the visual encoder (visual encoder use a single 
 
 Version 7: Try to target merge modules o visual encoder network layers ??
 
-Version 8: same set up different models (see Leaderboard https://huggingface.co/spaces/opencompass/open_vlm_leaderboard )
+Version 8: Try different adapters?
 
-Version 9: same set up different data (ChartQA)
+Version 9: same set up different models (see Leaderboard https://huggingface.co/spaces/opencompass/open_vlm_leaderboard )
+
+Version 10: same set up different data (ChartQA)
 
 ## Error_analysis
 error_analysis/error_analysis_zeroshot_no-ocr-v4.csv: error analysis of the best zero-shot generated data
