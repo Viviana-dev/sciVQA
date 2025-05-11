@@ -49,36 +49,47 @@ with/without OCR (EasyOCR, Tesseract, Sunia)
 
 ## Second trials: fine-tuned model versions of Qwen2.5-VL with instructed data generated for the zero-shot
 
-Version 1: LoRa_versions/adapter_config_version1.json
+❌ Version 1: [config](LoRa_versions/Version_1/adapter_config.json)
 change all the attention and MLP layers
-we saved a checkpoint, we didn't finish the training 
+we saved a checkpoint, we didn't finish the training
 
-Version 2: LoRa_versions/adapter_config_version2.json
-as the tutorial: https://huggingface.co/learn/cookbook/en/fine_tuning_vlm_trl#2-load-dataset-   "target_modules"=["q_proj", "v_proj"]
+✅ Version 2: [config](LoRa_versions/Version_2/adapter_config.json)
+as the tutorial: https://huggingface.co/learn/cookbook/en/fine_tuning_vlm_trl#2-load-dataset-
+`"target_modules"=["q_proj", "v_proj"]`
 change only two attention layers (query and value)
 
-Version 3: LoRa_versions/adapter_config_version3.json
-"target_modules": ["q_proj", "k_proj", "v_proj", "o_proj"]
+
+✅ Version 3: [config](LoRa_versions/Version_3/adapter_config.json)
+`"target_modules": ["q_proj", "k_proj", "v_proj", "o_proj"]`
 change only attention layers (query, key, value, output) of the text decoder
 
-Version 4: LoRa_versions/adapter_config_version4.json
-"target_modules": ["layers.26.mlp.up_proj", "layers.27.mlp.down_proj"]
+✅ Version 4: [config](LoRa_versions/Version_4/adapter_config.json)
+`"target_modules": ["up_proj", "gate_proj", "down_proj"]`
+change all the MLP layers of the text decoder
+
+✅ Version 5: [config](LoRa_versions/Version_5/adapter_config.json)
+`"target_modules": ["layers.26.mlp.up_proj", "layers.27.mlp.down_proj"]`
 change only final MLP layers of the text decoder
 
-Version 5: adapter_config_version5.json
-"target_modules": ["up_proj", "gate_proj", "down_proj"]
-change all the MLP layers of the text decoder 
+✅ Version 6:
+`"target_modules": ["up_proj", "gate_proj", "down_proj", "q_proj", "v_proj"]`
+change all MLP layers and query and value attention layer
 
-Version 6: "target_modules": ["visual.blocks.X.attn.qkv", "visual.blocks.X.attn.proj"]
-change only attention layers of the visual encoder (visual encoder use a single qkv linear layer instead of separate q_proj, k_proj, v_proj)
+🚧 Version 7:
+`"target_modules": ["visual.blocks.X.attn.qkv", "visual.blocks.X.attn.proj"]`
+change only attention layers of the visual encoder (visual encoder use a single qkv linear layer instead of separate   `q_proj`, `k_proj`, `v_proj`)
 
-Version 7: Try to target merge modules o visual encoder network layers ??
+🚧 Version 8:
+Try to target merge modules o visual encoder network layers ??
 
-Version 8: Try different adapters?
+🚧 Version 9:
+Try different adapters?
 
-Version 9: same set up different models (see Leaderboard https://huggingface.co/spaces/opencompass/open_vlm_leaderboard )
+🚧 Version 10:
+Same set up different models (see Leaderboard https://huggingface.co/spaces/opencompass/open_vlm_leaderboard )
 
-Version 10: same set up different data (ChartQA)
+🚧 Version 11:
+same set up different data (ChartQA)
 
-## Error_analysis
-error_analysis/error_analysis_zeroshot_no-ocr-v4.xlxs: error analysis of the best zero-shot generated data
+## Error analysis
+[error_analysis/error_analysis_zeroshot_no-ocr-v4.xlxs](error_analysis/error_analysis_zeroshot_no-ocr-v4.xlsx): error analysis of the best zero-shot generated data

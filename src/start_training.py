@@ -3,6 +3,8 @@ from os import makedirs, path
 from pathlib import Path
 
 import torch
+from accelerate import infer_auto_device_map, init_empty_weights
+from transformers import Qwen2_5_VLForConditionalGeneration
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
@@ -15,23 +17,30 @@ from training.train_lora_v1 import trainLoraModel
 # ---- Training Parameters ----
 
 MODEL_NAME = "Qwen/Qwen2.5-VL-7B-Instruct"
-VERSION = "Version_4"
+VERSION = "Version_6"
 OUTPUT_DIR = Path(path.join(LORA_PATH, "no-ocr-v4", VERSION))
 if not OUTPUT_DIR.exists():
     makedirs(OUTPUT_DIR, exist_ok=True)
 BATCH_SIZE = 12  # Batch size per device: This is the number of samples processed before the model is updated. A larger batch size can lead to better convergence but requires more memory.
 GRAD_ACC = 2  # Gradient Accumulation Steps: This is used to simulate a larger batch size by accumulating gradients over multiple steps before updating the model weights.
 EPOCHS = 5
-LR = 2e-6
+LR = 2e-4
 COMPUTE_DTYPE = torch.bfloat16  # Use bfloat16 for training
 LORA_RANK = (
-    64  # Lora rank is the number of low-rank matrices to be used in the LoRA module: higher rank means more parameters
+    32  # Lora rank is the number of low-rank matrices to be used in the LoRA module: higher rank means more parameters
 )
 LORA_ALPHA = 32  # Lora alpha is the scaling factor for the low-rank matrices: higher alpha means more parameters
 LORA_DROPOUT = (
     0.01  # Lora dropout is the dropout rate for the low-rank matrices: higher dropout means more regularization
 )
-TARGET_MODULES = ["up_proj", "gate_proj", "down_proj"]  # Target modules for LoRA
+TARGET_MODULES = ["up_proj", "gate_proj", "down_proj", "q_proj", "v_proj"]  # Target modules for LoRA
+
+print("#" * 20)
+print("Training LoRA Model")
+print(f"Model Name: {MODEL_NAME}")
+print(f"Version: {VERSION}")
+print(f"Target Modules: {TARGET_MODULES}")
+print("#" * 20)
 
 # ---- Start Training ----
 trainLoraModel(

@@ -1,14 +1,17 @@
 import random
+import shutil
 import sys
 from os import environ, path
 from pathlib import Path
 
 import torch
 import wandb
+from evaluate import load
 from peft import LoraConfig, TaskType, get_peft_model
 from qwen_vl_utils import process_vision_info
 from torch.utils.data import Dataset
 from transformers import (
+    EarlyStoppingCallback,
     Qwen2_5_VLForConditionalGeneration,
     Qwen2_5_VLProcessor,
     Qwen2VLProcessor,
@@ -17,10 +20,14 @@ from trl import SFTConfig, SFTTrainer
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
+from helpers.constants import LOARA_VERSIONS_PATH
 from training.dataset import SciVQAConversationDataset
 from training.gpu_cleaner import clear_memory
 
 environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+environ.setdefault("WANDB_SILENT", "true")
+
+rouge = load("rouge")
 
 
 def trainLoraModel(
@@ -82,7 +89,7 @@ def trainLoraModel(
         learning_rate=lr,  # Learning rate for training
         lr_scheduler_type="cosine",  # Type of learning rate scheduler
         # Logging and evaluation
-        logging_steps=10,  # Steps interval for logging
+        logging_steps=100,  # Steps interval for logging
         eval_steps=100,  # Steps interval for evaluation
         eval_strategy="steps",  # Strategy for evaluation
         save_strategy="steps",  # Strategy for saving the model
@@ -93,7 +100,9 @@ def trainLoraModel(
         save_total_limit=3,  # Limit the number of saved models
         # Mixed precision and gradient settings
         bf16=True,  # Use bfloat16 precision
-        warmup_ratio=0.03,  # Ratio of total steps for warmup
+        max_grad_norm=1.0,  # gradient clipping for stability
+        max_length=128,
+        warmup_ratio=0.05,  # Ratio of total steps for warmup -> 5%
         # Hub and reporting
         report_to="wandb",  # Reporting tool for tracking metrics
         # Gradient checkpointing settings
@@ -110,6 +119,11 @@ def trainLoraModel(
         config=training_args,
     )
 
+    early_stop_cb = EarlyStoppingCallback(
+        early_stopping_patience=2,  # how many eval rounds to wait
+        early_stopping_threshold=0.001,  # require a strictly better score
+    )
+
     def collate_fn(batch):
 
         all_messages = [item["messages"] for item in batch]
@@ -117,12 +131,7 @@ def trainLoraModel(
 
         image_inputs, _ = process_vision_info(all_messages)
 
-        batch = processor(
-            text=texts,
-            images=image_inputs,
-            return_tensors="pt",
-            padding=True,
-        )
+        batch = processor(text=texts, images=image_inputs, return_tensors="pt", padding=True)
 
         # The labels are the input_ids, and we mask the padding tokens in the loss computation
         labels = batch["input_ids"].clone()  # Clone input IDs for labels
@@ -132,9 +141,7 @@ def trainLoraModel(
         if isinstance(processor, Qwen2VLProcessor):  # Check if the processor is Qwen2VLProcessor
             image_tokens = [151652, 151653, 151655]  # Specific image token IDs for Qwen2VLProcessor
         else:
-            image_tokens = [
-                processor.tokenizer.convert_tokens_to_ids(processor.image_token)
-            ]  # Convert image token to ID
+            image_tokens = [processor.tokenizer.convert_tokens_to_ids(processor.image_token)]
 
         # Mask image token IDs in the labels
         for image_token_id in image_tokens:
@@ -144,7 +151,7 @@ def trainLoraModel(
 
         return batch
 
-    trainer = SFTTrainer(
+    trainer: SFTTrainer = SFTTrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
@@ -152,6 +159,7 @@ def trainLoraModel(
         data_collator=collate_fn,
         peft_config=peft_config,
         processing_class=processor.tokenizer,
+        callbacks=[early_stop_cb],
     )
 
     # Start training
@@ -160,7 +168,33 @@ def trainLoraModel(
     print("Training complete.")
     # Save the model
     trainer.save_model(path.join(output_dir, "model"))
+    lora_versions_path = Path(path.join(LOARA_VERSIONS_PATH, version))
+    if not lora_versions_path.exists():
+        lora_versions_path.mkdir(parents=True, exist_ok=True)
+    # move adapter_config.json to lora_versions_path
+    config_path = Path(path.join(output_dir, "model", "adapter_config.json"))
+    if path.exists(config_path):
+        print(f"Copy adapter_config.json to {lora_versions_path}")
+        shutil.copyfile(
+            config_path,
+            path.join(lora_versions_path, "adapter_config.json"),
+        )
+    else:
+        print(f"adapter_config.json not found in {output_dir}/model")
 
 
 if __name__ == "__main__":
-    trainLoraModel()
+    trainLoraModel(
+        model_name="Qwen/Qwen2.5-VL-7B-Instruct",
+        version="Version_6",
+        output_dir=Path(path.join(LOARA_VERSIONS_PATH, "no-ocr-v4", "Version_6")),
+        batch_size=2,
+        grad_acc=2,
+        epochs=5,
+        lr=2e-6,
+        compute_dtype=torch.bfloat16,
+        lora_rank=32,
+        lora_alpha=32,
+        lora_dropout=0.01,
+        target_modules=["up_proj", "gate_proj", "down_proj", "q_proj", "v_proj"],
+    )

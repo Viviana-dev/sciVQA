@@ -16,9 +16,4 @@
 # The model is memorizing irrelevant patterns:
 - If the training loss is decreasing but validation loss or accuracy is stagnant or worse. Try add some **distortions in the data** eg chart distortions (contrastive learning) or more varied questions (but I don't think this is the issue)
 
-General impression I have: the things we are trying to modify on the model are too little and with not enough data and diverse data: so our fine-tuning is ineffective (Like throwing a bucket of water into a burning forest). The patterns that the model is learning are already there 
-
-
-
-
-
+General impression I have: the things we are trying to modify on the model are too little and with not enough data and diverse data: so our fine-tuning is ineffective (Like throwing a bucket of water into a burning forest). The patterns that the model is learning are already there

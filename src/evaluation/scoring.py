@@ -1,6 +1,7 @@
 import csv
 import sys
 from os import makedirs, path
+from pathlib import Path
 
 import pandas as pd
 from evaluate import load
@@ -172,7 +173,11 @@ def compute_evaluation_scores(version: str):
         list_of_metric_dfs.append(metric_df)
 
     # join the dataframe on one csv and add a headline to every csv table
-    with open(path.join(METRIC_PATH, version, "metrics.csv"), "w") as f:
+    metrics_path = Path(path.join(METRIC_PATH, version, "metrics.csv"))
+    if not path.exists(path.dirname(metrics_path)):
+        print(f"Creating directory: {path.dirname(metrics_path)}")
+        makedirs(path.dirname(metrics_path))
+    with open(metrics_path, "w") as f:
         for i, metric_df in enumerate(list_of_metric_dfs):
             if i != 0:
                 f.write("\n")
@@ -183,4 +188,4 @@ def compute_evaluation_scores(version: str):
 
 
 if __name__ == "__main__":
-    compute_evaluation_scores()
+    compute_evaluation_scores(version="Version_4")
