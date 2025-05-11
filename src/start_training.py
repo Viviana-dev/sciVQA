@@ -3,8 +3,6 @@ from os import makedirs, path
 from pathlib import Path
 
 import torch
-from accelerate import infer_auto_device_map, init_empty_weights
-from transformers import Qwen2_5_VLForConditionalGeneration
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
@@ -17,7 +15,7 @@ from training.train_lora_v1 import trainLoraModel
 # ---- Training Parameters ----
 
 MODEL_NAME = "Qwen/Qwen2.5-VL-7B-Instruct"
-VERSION = "Version_6"
+VERSION = "Version_7"
 OUTPUT_DIR = Path(path.join(LORA_PATH, "no-ocr-v4", VERSION))
 if not OUTPUT_DIR.exists():
     makedirs(OUTPUT_DIR, exist_ok=True)

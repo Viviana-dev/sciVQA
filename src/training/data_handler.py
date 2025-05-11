@@ -1,5 +1,11 @@
-from qwen_vl_utils import process_vision_info
+import sys
+from os import path
+
 from transformers import Qwen2_5_VLForConditionalGeneration, Qwen2_5_VLProcessor
+
+sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
+
+from helpers.qwen_util import custom_process_vision_info
 
 
 def generate_text_from_sample(
@@ -15,7 +21,7 @@ def generate_text_from_sample(
     )
 
     # Process the visual input from the sample
-    image_inputs, _ = process_vision_info(sample)
+    image_inputs, _ = custom_process_vision_info(sample)
 
     # Prepare the inputs for the model
     model_inputs = processor(text=[text_input], images=image_inputs, return_tensors="pt").to(device)

@@ -12,13 +12,13 @@ import torch
 import tqdm
 from peft import PeftModel
 from PIL import Image
-from qwen_vl_utils import process_vision_info
 from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
-from helpers.constants import BASE_PATH, LORA_PATH, PREDICITION_PATH
+from helpers.constants import BASE_PATH, PREDICITION_PATH
 from helpers.data_load import load_datasets, load_real_image_path
+from helpers.qwen_util import custom_process_vision_info
 
 
 def parse_qa_types(qa_type_raw: str) -> set[str]:
@@ -87,7 +87,7 @@ def build_dynamic_prompt(entry, split="validation", save_sample_path: Path = Non
     if "infinite answer set" in qa_types:
         prompt += (
             "\nRespond with a concise, one-word or very short phrase. No full sentences, no explanations."
-            "\nIf the answer is numeric, use digits only and retain any suffix (e.g., %, k, etc.)."
+            "\nIf the answer is numeric, use digits only and include any units or suffixes (e.g., %, kg, $)."
         )
     elif "finite answer set" in qa_types:
         if "binary" in qa_types:
@@ -95,8 +95,9 @@ def build_dynamic_prompt(entry, split="validation", save_sample_path: Path = Non
         else:
             parsed_options = ast.literal_eval(answer_options)
             options = {k: v for d in parsed_options for k, v in d.items()}
-            prompt += f"\nPlease choose one of the following options: {options}."
-            prompt += "\nRespond only with the choosen options keyword, no explanations and no full sentences."
+            prompt += f"\nAvailable options: {options}."
+            prompt += "\nRespond only with the corresponding option keyword(s) (e.g., 'A' or 'A,B' if multiple apply)."
+            prompt += " Do not include explanations, full sentences, or option text."
 
     prompt += "\nResponse:"
 
@@ -142,7 +143,7 @@ def evaluate_model(processor, model, save_sample_path: Path):
         ]
 
         text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        image_inputs, video_inputs = process_vision_info(messages)
+        image_inputs, video_inputs = custom_process_vision_info(messages)
 
         inputs = processor(
             text=[text],

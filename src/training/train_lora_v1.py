@@ -121,7 +121,7 @@ def trainLoraModel(
 
     early_stop_cb = EarlyStoppingCallback(
         early_stopping_patience=2,  # how many eval rounds to wait
-        early_stopping_threshold=0.001,  # require a strictly better score
+        early_stopping_threshold=0.0001,  # require a strictly better score
     )
 
     def collate_fn(batch):
