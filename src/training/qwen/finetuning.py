@@ -21,8 +21,8 @@ from trl import SFTConfig, SFTTrainer
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 from helpers.constants import LOARA_VERSIONS_PATH
-from training.dataset import SciVQAConversationDataset
 from training.gpu_cleaner import clear_memory
+from training.qwen.dataset import SciVQAConversationDataset
 
 environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 environ.setdefault("WANDB_SILENT", "true")
