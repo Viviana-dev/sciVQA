@@ -15,7 +15,7 @@ from training.train_lora_v1 import trainLoraModel
 # ---- Training Parameters ----
 
 MODEL_NAME = "Qwen/Qwen2.5-VL-7B-Instruct"
-VERSION = "Version_7"
+VERSION = "Version_8"
 OUTPUT_DIR = Path(path.join(LORA_PATH, "no-ocr-v4", VERSION))
 if not OUTPUT_DIR.exists():
     makedirs(OUTPUT_DIR, exist_ok=True)
@@ -25,13 +25,13 @@ EPOCHS = 5
 LR = 2e-4
 COMPUTE_DTYPE = torch.bfloat16  # Use bfloat16 for training
 LORA_RANK = (
-    32  # Lora rank is the number of low-rank matrices to be used in the LoRA module: higher rank means more parameters
+    64  # Lora rank is the number of low-rank matrices to be used in the LoRA module: higher rank means more parameters
 )
 LORA_ALPHA = 32  # Lora alpha is the scaling factor for the low-rank matrices: higher alpha means more parameters
 LORA_DROPOUT = (
-    0.01  # Lora dropout is the dropout rate for the low-rank matrices: higher dropout means more regularization
+    0.05  # Lora dropout is the dropout rate for the low-rank matrices: higher dropout means more regularization
 )
-TARGET_MODULES = ["up_proj", "gate_proj", "down_proj", "q_proj", "v_proj"]  # Target modules for LoRA
+TARGET_MODULES = ["up_proj", "gate_proj", "down_proj", "q_proj", "v_proj", "k_proj"]  # Target modules for LoRA
 
 print("#" * 20)
 print("Training LoRA Model")

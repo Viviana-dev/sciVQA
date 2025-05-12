@@ -11,9 +11,9 @@ from peft import LoraConfig, TaskType, get_peft_model
 from qwen_vl_utils import process_vision_info
 from torch.utils.data import Dataset
 from transformers import (
+    AutoProcessor,
     EarlyStoppingCallback,
     Qwen2_5_VLForConditionalGeneration,
-    Qwen2_5_VLProcessor,
     Qwen2VLProcessor,
 )
 from trl import SFTConfig, SFTTrainer
@@ -62,7 +62,7 @@ def trainLoraModel(
         use_cache=False,
     )
 
-    processor = Qwen2_5_VLProcessor.from_pretrained(model_name, use_fast=False)
+    processor = AutoProcessor.from_pretrained(model_name, use_fast=False)
 
     peft_config = LoraConfig(
         lora_alpha=lora_alpha,
@@ -111,6 +111,7 @@ def trainLoraModel(
         dataset_text_field="",  # Text field in dataset
         dataset_kwargs={"skip_prepare_dataset": True},  # Additional dataset options
         remove_unused_columns=False,  # Whether to remove unused columns in the dataset
+        label_names=["labels"],  # Names of the label columns
     )
 
     wandb.init(
