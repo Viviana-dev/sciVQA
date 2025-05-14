@@ -6,10 +6,12 @@
 - mPLUG-owl-7B (Flamingo)
 - GPT4-v
 - Gemini Pro
+- Pali3B
 ## Models used for the task (chart-trained VLLMs)
 - ChartLLama
 - ChartAssistant
 - ChartInstruct
+- ChartAst
 ## Chart specialist models
 - ChartBERT
 - Pix2Struct
@@ -113,3 +115,10 @@ same set up different data (ChartQA)
 - WebCharts
 - ChartFC
 - PlotQA
+
+## Benchmark
+- ChartQA
+- Chart-to-Text
+- Chart-to-Table
+- OpenCQA
+- ChartX
