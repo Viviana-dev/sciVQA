@@ -9,17 +9,17 @@ sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 from evaluation.evaluation import evaluate_model_predictions
 from evaluation.scoring import compute_evaluation_scores
 from helpers.constants import LORA_PATH
+from training.finetuning import trainLoraModel
 from training.gpu_cleaner import clear_memory
-from training.qwen.finetuning import trainLoraModel
 
 # ---- Training Parameters ----
 
 MODEL_NAME = "Qwen/Qwen2.5-VL-7B-Instruct"
-VERSION = "Version_9"
+VERSION = "Version_14"
 OUTPUT_DIR = Path(path.join(LORA_PATH, "no-ocr-v4", VERSION))
 if not OUTPUT_DIR.exists():
     makedirs(OUTPUT_DIR, exist_ok=True)
-BATCH_SIZE = 12  # Batch size per device: This is the number of samples processed before the model is updated. A larger batch size can lead to better convergence but requires more memory.
+BATCH_SIZE = 8  # Batch size per device: This is the number of samples processed before the model is updated. A larger batch size can lead to better convergence but requires more memory.
 GRAD_ACC = 2  # Gradient Accumulation Steps: This is used to simulate a larger batch size by accumulating gradients over multiple steps before updating the model weights.
 EPOCHS = 5
 LR = 2e-4
@@ -31,15 +31,9 @@ LORA_ALPHA = 32  # Lora alpha is the scaling factor for the low-rank matrices: h
 LORA_DROPOUT = (
     0.05  # Lora dropout is the dropout rate for the low-rank matrices: higher dropout means more regularization
 )
-TARGET_MODULES = [
-    "up_proj",
-    "gate_proj",
-    "down_proj",
-    "q_proj",
-    "v_proj",
-    "visual.blocks.X.attn.qkv",
-    "visual.blocks.X.attn.proj",
-]  # Target modules for LoRA
+TARGET_MODULES = (
+    "^(?!.*visual).*(?:o_proj|up_proj|v_proj|down_proj|k_proj|q_proj|gate_proj).*"  # Target modules for LoRA
+)
 
 print("#" * 20)
 print("Training LoRA Model")
@@ -72,6 +66,7 @@ evaluate_model_predictions(
     adapter_path=Path(path.join(OUTPUT_DIR, "model")),
     model_name=MODEL_NAME,
     version=VERSION,
+    dataset_type="validation",
 )
 
 # ---- Calculate the Scores ----

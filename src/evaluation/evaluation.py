@@ -1,11 +1,9 @@
-import ast
 import csv
-import random
-import re
 import shutil
 import sys
 from os import makedirs, path
 from pathlib import Path
+from typing import Literal
 
 import pandas as pd
 import torch
@@ -16,133 +14,64 @@ from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
+from helpers.build_prompt import build_dynamic_prompt
 from helpers.constants import BASE_PATH, PREDICITION_PATH
 from helpers.data_load import load_datasets, load_real_image_path
 from helpers.qwen_util import custom_process_vision_info
 
 
-def parse_qa_types(qa_type_raw: str) -> set[str]:
-    qa_str = str(qa_type_raw).lower()
-
-    ordered_tokens = [
-        "closed-ended",
-        "unanswerable",
-        "infinite answer set",
-        "finite answer set",
-        "non-binary",
-        "binary",
-        "non-visual",
-        "visual",
-    ]
-
-    found = set()
-    for token in ordered_tokens:
-        # match token as a whole word; allow spaces or semicolons as separators
-        pattern = r"(?:^|[\s;])" + re.escape(token) + r"(?:[\s;]|$)"
-        if re.search(pattern, qa_str):
-            found.add(token)
-            # strip out the matched portion to prevent nested matches
-            qa_str = re.sub(pattern, " ", qa_str, count=1)
-
-    return found
-
-
-def build_dynamic_prompt(entry, split="validation", save_sample_path: Path = None):
-    instance_id = entry["instance_id"]
-    image_path = entry["image_file"]
-    question = entry["question"]
-    qa_type_raw = entry["qa_pair_type"]
-    caption = entry.get("caption", "")
-    figure_type = entry.get("figure_type", "figure")
-    compound = entry.get("compound", False)
-    figs_numb = entry.get("figs_numb", 0)
-    answer_options = entry.get("answer_options", "")
-    random_state: bool = random.choice([True, False])
-
-    qa_types = parse_qa_types(qa_type_raw)
-
-    prompt = f"You are looking at a {figure_type}"
-    if compound:
-        prompt += f" with {figs_numb} subfigures"
-    prompt += "."
-
-    if caption:
-        prompt += f"\nThe caption reads: '{caption}'."
-
-    prompt += f"\nQuestion: {question}"
-
-    if "unanswerable" in qa_types:
-        prompt += (
-            "\nIf the answer cannot be inferred from the figure and caption, reply 'It is not possible to answer this question based only on the provided data.'"
-            "\nResponse:"
-        )
-        return prompt.strip(), random_state
-
-    if "visual" in qa_types:
-        prompt += "\n[Visual cue] Pay attention to color, position, shape, size, height, or direction."
-    elif "non-visual" in qa_types:
-        prompt += "\n[Data-only cue] Focus your answer more on numeric or textual values."
-    prompt += "\nPlease also consider the caption of the figure to answer the question."
-
-    if "infinite answer set" in qa_types:
-        prompt += (
-            "\nRespond with a concise, one-word or very short phrase. No full sentences, no explanations."
-            "\nIf the answer is numeric, use digits only and include any units or suffixes (e.g., %, kg, $)."
-        )
-    elif "finite answer set" in qa_types:
-        if "binary" in qa_types:
-            prompt += "\nPlease answer with 'Yes' or 'No' only."
-        else:
-            parsed_options = ast.literal_eval(answer_options)
-            options = {k: v for d in parsed_options for k, v in d.items()}
-            prompt += f"\nAvailable options: {options}."
-            prompt += "\nRespond only with the corresponding option keyword(s) (e.g., 'A' or 'A,B' if multiple apply)."
-            prompt += " Do not include explanations, full sentences, or option text."
-
-    prompt += "\nResponse:"
-
-    if random_state and save_sample_path:
-        save_path = Path(path.join(save_sample_path, instance_id))
-        save_path.mkdir(parents=True, exist_ok=True)
-        prompt_file_path = path.join(save_path, "prompt.txt")
-        image_file_path = path.join(save_path, "image.png")
-        root_image_path = load_real_image_path(image_path, **{split: True})
-        image = Image.open(root_image_path).convert("RGB")
-        image.save(image_file_path)
-        # visualize_ocr_boxes(image, boxes=boxes, color="red", show=False, save_path=image_file_path)
-        with open(prompt_file_path, "w", encoding="utf-8") as f:
-            f.write(f"QA-Type: {qa_type_raw}")
-            f.write(f"Figure type: {figure_type}")
-            f.write(f"\n\n{prompt}")
-
-    return prompt.strip(), random_state
-
-
-def evaluate_model(processor, model, save_sample_path: Path):
+def evaluate_model(
+    processor, model, save_sample_path: Path, dataset_type: Literal["train", "validation", "test"] = "validation"
+):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    validation_dataset = load_datasets(validation=True, train=False, test=False)
-    total_rows = len(validation_dataset)
+    if dataset_type == "train":
+        dataset = load_datasets(validation=False, train=True, test=False)
+    elif dataset_type == "test":
+        dataset = load_datasets(validation=False, train=False, test=True)
+    else:
+        # default to validation
+        dataset = load_datasets(validation=True, train=False, test=False)
+    total_rows = len(dataset)
 
     results = []
-    for _, entry in tqdm.tqdm(
-        validation_dataset.iterrows(), total=total_rows, desc="Evaluating", unit="entry", unit_scale=True
-    ):
+    for _, entry in tqdm.tqdm(dataset.iterrows(), total=total_rows, desc="Evaluating", unit="entry", unit_scale=True):
         instance_id = entry["instance_id"]
         image_path = entry["image_file"]
         gold_answer = entry.get("answer", "")
-        prompt_text, state = build_dynamic_prompt(entry, split="validation")
+        prompt_text, state = build_dynamic_prompt(entry, split=dataset_type)
+        system_message: str = """You are a Vision Language Model specialized in interpreting visual data from chart images.
+Your task is to analyze the provided chart image and respond to queries with concise answers, usually a single word, number, or short phrase.
+The charts include a variety of types (e.g., line charts, bar charts) and contain colors, labels, and text.
+Focus on delivering accurate, succinct answers based on the visual information. Avoid additional explanation unless absolutely necessary."""
 
         messages = [
             {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": system_message,
+                    }
+                ],
+            },
+            {
                 "role": "user",
                 "content": [
-                    {"type": "image", "image": load_real_image_path(image_path, validation=True)},
-                    {"type": "text", "text": prompt_text},
+                    {
+                        "type": "image",
+                        "image": load_real_image_path(image_path, **{dataset_type: True}),
+                    },
+                    {
+                        "type": "text",
+                        "text": prompt_text,
+                    },
                 ],
-            }
+            },
         ]
 
-        text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        text: str = processor.apply_chat_template(
+            messages[1:2], tokenize=False, add_generation_prompt=True  # Use the message without the system message
+        )
         image_inputs, video_inputs = custom_process_vision_info(messages)
 
         inputs = processor(
@@ -177,7 +106,12 @@ def evaluate_model(processor, model, save_sample_path: Path):
     return results
 
 
-def evaluate_model_predictions(adapter_path: str, model_name: str, version: str):
+def evaluate_model_predictions(
+    adapter_path: str,
+    model_name: str,
+    version: str,
+    dataset_type: Literal["train", "validation", "test"] = "validation",
+):
     processor = AutoProcessor.from_pretrained(model_name, use_fast=True)
     base_model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
         model_name,
@@ -194,7 +128,7 @@ def evaluate_model_predictions(adapter_path: str, model_name: str, version: str)
 
     sample_path = Path(path.join(BASE_PATH, "sample", version))
 
-    results = evaluate_model(processor, model, sample_path)
+    results = evaluate_model(processor, model, sample_path, dataset_type)
     # save results to a csv file
     prediction_file_path = path.join(PREDICITION_PATH, "predictions", "predictions.csv")
     if not path.exists(path.dirname(prediction_file_path)):

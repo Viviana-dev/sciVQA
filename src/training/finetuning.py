@@ -6,28 +6,22 @@ from pathlib import Path
 
 import torch
 import wandb
-from evaluate import load
 from peft import LoraConfig, TaskType, get_peft_model
-from qwen_vl_utils import process_vision_info
 from torch.utils.data import Dataset
-from transformers import (
-    AutoProcessor,
-    EarlyStoppingCallback,
-    Qwen2_5_VLForConditionalGeneration,
-    Qwen2VLProcessor,
-)
+from transformers import AutoModelForImageTextToText, AutoProcessor, Conv1D, EarlyStoppingCallback, Qwen2VLProcessor
 from trl import SFTConfig, SFTTrainer
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 from helpers.constants import LOARA_VERSIONS_PATH
+from helpers.qwen_util import custom_process_vision_info
+from training.dataset import SciVQAConversationDataset
 from training.gpu_cleaner import clear_memory
-from training.qwen.dataset import SciVQAConversationDataset
 
 environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 environ.setdefault("WANDB_SILENT", "true")
-
-rouge = load("rouge")
+environ["CUDA_LAUNCH_BLOCKING"] = "1"
+environ["TORCH_USE_CUDA_DSA"] = "1"
 
 
 def trainLoraModel(
@@ -42,7 +36,7 @@ def trainLoraModel(
     lora_rank: int,
     lora_alpha: int,
     lora_dropout: float,
-    target_modules: list[str],
+    target_modules: list[str] | str,
 ) -> None:
     clear_memory()
 
@@ -53,7 +47,10 @@ def trainLoraModel(
     train_dataset: Dataset = SciVQAConversationDataset(split="train")
     eval_dataset: Dataset = SciVQAConversationDataset(split="validation")
 
-    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+    # train_chartqa_dataset: Dataset = ChartQAConversationDataset(split="train")
+    # train_dataset = ConcatDataset([train_dataset, train_chartqa_dataset])
+
+    model = AutoModelForImageTextToText.from_pretrained(
         model_name,
         torch_dtype=compute_dtype,
         device_map="auto",
@@ -64,12 +61,24 @@ def trainLoraModel(
 
     processor = AutoProcessor.from_pretrained(model_name, use_fast=False)
 
+    special_tokens_dict = {"additional_special_tokens": ["<box>", "</box>"]}
+    processor.tokenizer.add_special_tokens(special_tokens_dict)
+
+    # apply the new special tokens to the model
+    model.resize_token_embeddings(len(processor.tokenizer))
+
     peft_config = LoraConfig(
         lora_alpha=lora_alpha,
         lora_dropout=lora_dropout,
         r=lora_rank,
         bias="none",
         target_modules=target_modules,
+        # rank_pattern={
+        #    r"^visual\.": 16, # -> Reduce the number of parameters in the visual module
+        #    r"^layers\.\d+\.mlp\.": 32, # -> Avg number of parameters in the mlp module
+        #    r"^layers\.\d+\.self_attn": 64, # -> Full power for the self attention modules (decode)
+        # },
+        modules_to_save=["lm_head"],
         task_type=TaskType.CAUSAL_LM,
     )
 
@@ -111,7 +120,8 @@ def trainLoraModel(
         dataset_text_field="",  # Text field in dataset
         dataset_kwargs={"skip_prepare_dataset": True},  # Additional dataset options
         remove_unused_columns=False,  # Whether to remove unused columns in the dataset
-        label_names=["labels"],  # Names of the label columns
+        label_names=["labels"],
+        # auto_find_batch_size=True # Names of the label columns
     )
 
     wandb.init(
@@ -121,7 +131,7 @@ def trainLoraModel(
     )
 
     early_stop_cb = EarlyStoppingCallback(
-        early_stopping_patience=2,  # how many eval rounds to wait
+        early_stopping_patience=4,  # how many eval rounds to wait
         early_stopping_threshold=0.0001,  # require a strictly better score
     )
 
@@ -130,7 +140,7 @@ def trainLoraModel(
         all_messages = [item["messages"] for item in batch]
         texts = processor.apply_chat_template(all_messages, tokenize=False)
 
-        image_inputs, _ = process_vision_info(all_messages)
+        image_inputs, _ = custom_process_vision_info(all_messages)
 
         batch = processor(text=texts, images=image_inputs, return_tensors="pt", padding=True)
 
@@ -148,12 +158,20 @@ def trainLoraModel(
         for image_token_id in image_tokens:
             labels[labels == image_token_id] = -100  # Mask image token IDs in labels
 
+        # Mask the <box> and </box> token IDs in the labels
+        box_token_ids = [
+            processor.tokenizer.convert_tokens_to_ids("<box>"),
+            processor.tokenizer.convert_tokens_to_ids("</box>"),
+        ]
+        for token_id in box_token_ids:
+            labels[labels == token_id] = -100
+
         batch["labels"] = labels
 
         return batch
 
     trainer: SFTTrainer = SFTTrainer(
-        model=model,
+        model=peft_model,
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
@@ -182,20 +200,3 @@ def trainLoraModel(
         )
     else:
         print(f"adapter_config.json not found in {output_dir}/model")
-
-
-if __name__ == "__main__":
-    trainLoraModel(
-        model_name="Qwen/Qwen2.5-VL-7B-Instruct",
-        version="Version_6",
-        output_dir=Path(path.join(LOARA_VERSIONS_PATH, "no-ocr-v4", "Version_6")),
-        batch_size=2,
-        grad_acc=2,
-        epochs=5,
-        lr=2e-6,
-        compute_dtype=torch.bfloat16,
-        lora_rank=32,
-        lora_alpha=32,
-        lora_dropout=0.01,
-        target_modules=["up_proj", "gate_proj", "down_proj", "q_proj", "v_proj"],
-    )

@@ -1,0 +1,334 @@
+Figure Type: line chart
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"line chart","closed-ended infinite answer set visual","0.47","0.52","0.47","0.47","0.51","0.47","0.94","0.95","0.94"
+"line chart","closed-ended infinite answer set non-visual","0.65","0.66","0.66","0.64","0.65","0.65","0.96","0.96","0.96"
+"line chart","closed-ended finite answer set binary visual","0.74","0.74","0.74","0.74","0.74","0.74","1.0","1.0","1.0"
+"line chart","closed-ended finite answer set binary non-visual","0.74","0.74","0.74","0.74","0.74","0.74","1.0","1.0","1.0"
+"line chart","closed-ended finite answer set non-binary visual","0.77","0.78","0.79","0.77","0.78","0.79","0.99","0.99","0.99"
+"line chart","closed-ended finite answer set non-binary non-visual","0.66","0.65","0.7","0.66","0.65","0.7","0.97","0.97","0.98"
+"line chart","unanswerable","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+
+
+Figure Type: Line Chart,Table
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"Line Chart,Table","closed-ended infinite answer set visual","0.5","0.5","0.5","0.5","0.5","0.5","0.94","0.94","0.94"
+"Line Chart,Table","closed-ended infinite answer set non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Line Chart,Table","closed-ended finite answer set binary visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Line Chart,Table","closed-ended finite answer set binary non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Line Chart,Table","closed-ended finite answer set non-binary visual","0.0","0.0","0.0","0.0","0.0","0.0","1.0","1.0","1.0"
+"Line Chart,Table","closed-ended finite answer set non-binary non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Line Chart,Table","unanswerable","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+
+
+Figure Type: tree
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"tree","closed-ended infinite answer set visual","0.53","0.57","0.51","0.53","0.57","0.51","0.95","0.96","0.95"
+"tree","closed-ended infinite answer set non-visual","0.8","0.8","0.79","0.8","0.8","0.79","0.98","0.97","0.98"
+"tree","closed-ended finite answer set binary visual","0.64","0.64","0.64","0.64","0.64","0.64","1.0","1.0","1.0"
+"tree","closed-ended finite answer set binary non-visual","0.64","0.64","0.64","0.64","0.64","0.64","0.99","0.99","0.99"
+"tree","closed-ended finite answer set non-binary visual","0.57","0.58","0.61","0.57","0.58","0.61","0.97","0.97","0.97"
+"tree","closed-ended finite answer set non-binary non-visual","0.77","0.76","0.82","0.77","0.76","0.82","0.96","0.96","0.96"
+"tree","unanswerable","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+
+
+Figure Type: scatter plot
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"scatter plot","closed-ended infinite answer set visual","0.63","0.69","0.61","0.63","0.69","0.61","0.96","0.96","0.95"
+"scatter plot","closed-ended infinite answer set non-visual","0.83","0.83","0.83","0.83","0.83","0.83","0.98","0.98","0.98"
+"scatter plot","closed-ended finite answer set binary visual","0.56","0.56","0.56","0.56","0.56","0.56","1.0","1.0","1.0"
+"scatter plot","closed-ended finite answer set binary non-visual","0.56","0.56","0.56","0.56","0.56","0.56","1.0","1.0","1.0"
+"scatter plot","closed-ended finite answer set non-binary visual","0.78","0.76","0.83","0.78","0.76","0.83","0.98","0.97","0.99"
+"scatter plot","closed-ended finite answer set non-binary non-visual","0.74","0.78","0.72","0.74","0.78","0.72","0.99","0.99","0.98"
+"scatter plot","unanswerable","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+
+
+Figure Type: pie chart
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"pie chart","closed-ended infinite answer set visual","0.71","0.71","0.71","0.71","0.71","0.71","0.98","0.98","0.98"
+"pie chart","closed-ended infinite answer set non-visual","0.86","0.86","0.86","0.86","0.86","0.86","0.99","1.0","0.99"
+"pie chart","closed-ended finite answer set binary visual","0.57","0.57","0.57","0.57","0.57","0.57","1.0","1.0","1.0"
+"pie chart","closed-ended finite answer set binary non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"pie chart","closed-ended finite answer set non-binary visual","0.81","0.79","0.86","0.81","0.79","0.86","0.98","0.98","0.99"
+"pie chart","closed-ended finite answer set non-binary non-visual","0.86","0.86","0.86","0.86","0.86","0.86","1.0","1.0","1.0"
+"pie chart","unanswerable","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+
+
+Figure Type: architecture diagram
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"architecture diagram","closed-ended infinite answer set visual","0.71","0.71","0.7","0.67","0.68","0.67","1.0","1.0","1.0"
+"architecture diagram","closed-ended infinite answer set non-visual","0.86","0.86","0.86","0.86","0.86","0.86","1.0","1.0","1.0"
+"architecture diagram","closed-ended finite answer set binary visual","0.86","0.86","0.86","0.86","0.86","0.86","1.0","1.0","1.0"
+"architecture diagram","closed-ended finite answer set binary non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"architecture diagram","closed-ended finite answer set non-binary visual","0.64","0.67","0.64","0.64","0.67","0.64","0.97","0.98","0.97"
+"architecture diagram","closed-ended finite answer set non-binary non-visual","0.76","0.79","0.79","0.76","0.79","0.79","0.95","0.95","0.95"
+"architecture diagram","unanswerable","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+
+
+Figure Type: box plot
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"box plot","closed-ended infinite answer set visual","0.25","0.25","0.25","0.25","0.25","0.25","0.93","0.92","0.93"
+"box plot","closed-ended infinite answer set non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"box plot","closed-ended finite answer set binary visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"box plot","closed-ended finite answer set binary non-visual","0.5","0.5","0.5","0.5","0.5","0.5","1.0","1.0","1.0"
+"box plot","closed-ended finite answer set non-binary visual","0.83","0.75","1.0","0.83","0.75","1.0","0.94","0.92","0.97"
+"box plot","closed-ended finite answer set non-binary non-visual","0.5","0.5","0.5","0.5","0.5","0.5","1.0","1.0","1.0"
+"box plot","unanswerable","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+
+
+Figure Type: neural networks
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"neural networks","closed-ended infinite answer set visual","0.71","0.71","0.71","0.71","0.71","0.71","1.0","1.0","1.0"
+"neural networks","closed-ended infinite answer set non-visual","0.71","0.71","0.71","0.71","0.71","0.71","0.98","0.98","0.97"
+"neural networks","closed-ended finite answer set binary visual","0.57","0.57","0.57","0.57","0.57","0.57","1.0","1.0","1.0"
+"neural networks","closed-ended finite answer set binary non-visual","0.71","0.71","0.71","0.71","0.71","0.71","0.97","0.97","0.98"
+"neural networks","closed-ended finite answer set non-binary visual","0.38","0.36","0.43","0.38","0.36","0.43","0.94","0.92","0.97"
+"neural networks","closed-ended finite answer set non-binary non-visual","0.98","0.96","1.0","0.98","0.96","1.0","0.98","0.98","0.98"
+"neural networks","unanswerable","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+
+
+Figure Type: confusion matrix
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"confusion matrix","closed-ended infinite answer set visual","0.74","0.75","0.78","0.74","0.75","0.78","0.93","0.93","0.94"
+"confusion matrix","closed-ended infinite answer set non-visual","0.76","0.78","0.75","0.76","0.78","0.75","0.98","0.98","0.98"
+"confusion matrix","closed-ended finite answer set binary visual","0.5","0.5","0.5","0.5","0.5","0.5","1.0","1.0","1.0"
+"confusion matrix","closed-ended finite answer set binary non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"confusion matrix","closed-ended finite answer set non-binary visual","0.56","0.5","0.67","0.56","0.5","0.67","0.96","0.95","0.97"
+"confusion matrix","closed-ended finite answer set non-binary non-visual","0.65","0.61","0.78","0.65","0.61","0.78","0.94","0.93","0.94"
+"confusion matrix","unanswerable","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+
+
+Figure Type: graph
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"graph","closed-ended infinite answer set visual","0.36","0.36","0.47","0.29","0.28","0.4","0.87","0.87","0.87"
+"graph","closed-ended infinite answer set non-visual","0.56","0.63","0.56","0.56","0.63","0.56","0.97","0.97","0.97"
+"graph","closed-ended finite answer set binary visual","0.83","0.83","0.83","0.83","0.83","0.83","1.0","1.0","1.0"
+"graph","closed-ended finite answer set binary non-visual","0.83","0.83","0.83","0.83","0.83","0.83","1.0","1.0","1.0"
+"graph","closed-ended finite answer set non-binary visual","0.29","0.31","0.33","0.29","0.31","0.33","0.95","0.96","0.95"
+"graph","closed-ended finite answer set non-binary non-visual","0.51","0.56","0.5","0.51","0.56","0.5","0.93","0.94","0.93"
+"graph","unanswerable","0.93","0.9","1.0","0.93","0.9","1.0","0.99","0.98","1.0"
+
+
+Figure Type: bar chart
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"bar chart","closed-ended infinite answer set visual","0.94","0.96","0.93","0.94","0.96","0.93","0.98","0.98","0.98"
+"bar chart","closed-ended infinite answer set non-visual","0.64","0.71","0.62","0.64","0.71","0.62","0.96","0.96","0.95"
+"bar chart","closed-ended finite answer set binary visual","0.57","0.57","0.57","0.57","0.57","0.57","1.0","1.0","1.0"
+"bar chart","closed-ended finite answer set binary non-visual","0.86","0.86","0.86","0.86","0.86","0.86","1.0","1.0","1.0"
+"bar chart","closed-ended finite answer set non-binary visual","0.57","0.57","0.57","0.57","0.57","0.57","0.98","0.98","0.99"
+"bar chart","closed-ended finite answer set non-binary non-visual","0.64","0.71","0.62","0.64","0.71","0.62","0.97","0.98","0.97"
+"bar chart","unanswerable","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+
+
+Figure Type: Histogram
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"Histogram","closed-ended infinite answer set visual","0.0","0.0","0.0","0.0","0.0","0.0","1.0","1.0","1.0"
+"Histogram","closed-ended infinite answer set non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Histogram","closed-ended finite answer set binary visual","0.0","0.0","0.0","0.0","0.0","0.0","1.0","1.0","1.0"
+"Histogram","closed-ended finite answer set binary non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Histogram","closed-ended finite answer set non-binary visual","0.0","0.0","0.0","0.0","0.0","0.0","1.0","1.0","1.0"
+"Histogram","closed-ended finite answer set non-binary non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Histogram","unanswerable","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+
+
+Figure Type: venn diagram
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"venn diagram","closed-ended infinite answer set visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"venn diagram","closed-ended infinite answer set non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"venn diagram","closed-ended finite answer set binary visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"venn diagram","closed-ended finite answer set binary non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"venn diagram","closed-ended finite answer set non-binary visual","0.0","0.0","0.0","0.0","0.0","0.0","1.0","1.0","1.0"
+"venn diagram","closed-ended finite answer set non-binary non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"venn diagram","unanswerable","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+
+
+Figure Type: Neural Networks
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"Neural Networks","closed-ended infinite answer set visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Neural Networks","closed-ended infinite answer set non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Neural Networks","closed-ended finite answer set binary visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Neural Networks","closed-ended finite answer set binary non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Neural Networks","closed-ended finite answer set non-binary visual","0.0","0.0","0.0","0.0","0.0","0.0","1.0","1.0","1.0"
+"Neural Networks","closed-ended finite answer set non-binary non-visual","0.67","0.5","1.0","0.67","0.5","1.0","0.89","0.84","0.94"
+"Neural Networks","unanswerable","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+
+
+Figure Type: Architecture Diagram
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"Architecture Diagram","closed-ended infinite answer set visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Architecture Diagram","closed-ended infinite answer set non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Architecture Diagram","closed-ended finite answer set binary visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Architecture Diagram","closed-ended finite answer set binary non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Architecture Diagram","closed-ended finite answer set non-binary visual","0.67","0.5","1.0","0.67","0.5","1.0","0.88","0.84","0.93"
+"Architecture Diagram","closed-ended finite answer set non-binary non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Architecture Diagram","unanswerable","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+
+
+Figure Type: Vector plot
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"Vector plot","closed-ended infinite answer set visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Vector plot","closed-ended infinite answer set non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Vector plot","closed-ended finite answer set binary visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Vector plot","closed-ended finite answer set binary non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Vector plot","closed-ended finite answer set non-binary visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Vector plot","closed-ended finite answer set non-binary non-visual","0.0","0.0","0.0","0.0","0.0","0.0","1.0","1.0","1.0"
+"Vector plot","unanswerable","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+
+
+Figure Type: histogram
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"histogram","closed-ended infinite answer set visual","0.67","1.0","0.5","0.67","1.0","0.5","0.93","0.95","0.91"
+"histogram","closed-ended infinite answer set non-visual","1.0","1.0","1.0","1.0","1.0","1.0","0.99","0.99","0.99"
+"histogram","closed-ended finite answer set binary visual","0.0","0.0","0.0","0.0","0.0","0.0","1.0","1.0","1.0"
+"histogram","closed-ended finite answer set binary non-visual","0.0","0.0","0.0","0.0","0.0","0.0","1.0","1.0","1.0"
+"histogram","closed-ended finite answer set non-binary visual","0.0","0.0","0.0","0.0","0.0","0.0","1.0","1.0","1.0"
+"histogram","closed-ended finite answer set non-binary non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"histogram","unanswerable","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+
+
+Figure Type: Scatter Plot
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"Scatter Plot","closed-ended infinite answer set visual","1.0","1.0","1.0","1.0","1.0","1.0","0.91","0.94","0.89"
+"Scatter Plot","closed-ended infinite answer set non-visual","0.0","0.0","0.0","0.0","0.0","0.0","0.85","0.91","0.8"
+"Scatter Plot","closed-ended finite answer set binary visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Scatter Plot","closed-ended finite answer set binary non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Scatter Plot","closed-ended finite answer set non-binary visual","0.0","0.0","0.0","0.0","0.0","0.0","1.0","1.0","1.0"
+"Scatter Plot","closed-ended finite answer set non-binary non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Scatter Plot","unanswerable","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+
+
+Figure Type: Other
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"Other","closed-ended infinite answer set visual","0.0","0.0","0.0","0.0","0.0","0.0","0.88","0.83","0.93"
+"Other","closed-ended infinite answer set non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Other","closed-ended finite answer set binary visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Other","closed-ended finite answer set binary non-visual","0.0","0.0","0.0","0.0","0.0","0.0","1.0","1.0","1.0"
+"Other","closed-ended finite answer set non-binary visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Other","closed-ended finite answer set non-binary non-visual","0.0","0.0","0.0","0.0","0.0","0.0","1.0","1.0","1.0"
+"Other","unanswerable","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+
+
+Figure Type: Graph
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"Graph","closed-ended infinite answer set visual","0.7","0.67","0.75","0.7","0.67","0.75","0.97","0.97","0.98"
+"Graph","closed-ended infinite answer set non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Graph","closed-ended finite answer set binary visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Graph","closed-ended finite answer set binary non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Graph","closed-ended finite answer set non-binary visual","0.5","0.5","0.5","0.5","0.5","0.5","1.0","1.0","1.0"
+"Graph","closed-ended finite answer set non-binary non-visual","0.75","0.67","1.0","0.75","0.67","1.0","0.91","0.89","0.95"
+"Graph","unanswerable","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+
+
+Figure Type: Line Chart,Bar Chart
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"Line Chart,Bar Chart","closed-ended infinite answer set visual","0.0","0.0","0.0","0.0","0.0","0.0","0.91","0.89","0.93"
+"Line Chart,Bar Chart","closed-ended infinite answer set non-visual","0.0","0.0","0.0","0.0","0.0","0.0","0.95","0.95","0.95"
+"Line Chart,Bar Chart","closed-ended finite answer set binary visual","0.0","0.0","0.0","0.0","0.0","0.0","1.0","1.0","1.0"
+"Line Chart,Bar Chart","closed-ended finite answer set binary non-visual","0.0","0.0","0.0","0.0","0.0","0.0","1.0","1.0","1.0"
+"Line Chart,Bar Chart","closed-ended finite answer set non-binary visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Line Chart,Bar Chart","closed-ended finite answer set non-binary non-visual","0.0","0.0","0.0","0.0","0.0","0.0","1.0","1.0","1.0"
+"Line Chart,Bar Chart","unanswerable","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+
+
+Figure Type: Flow chart
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"Flow chart","closed-ended infinite answer set visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Flow chart","closed-ended infinite answer set non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Flow chart","closed-ended finite answer set binary visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Flow chart","closed-ended finite answer set binary non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Flow chart","closed-ended finite answer set non-binary visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Flow chart","closed-ended finite answer set non-binary non-visual","0.0","0.0","0.0","0.0","0.0","0.0","0.82","0.79","0.85"
+"Flow chart","unanswerable","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+
+
+Figure Type: Tree
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"Tree","closed-ended infinite answer set visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Tree","closed-ended infinite answer set non-visual","0.75","0.75","0.75","0.75","0.75","0.75","0.88","0.87","0.9"
+"Tree","closed-ended finite answer set binary visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Tree","closed-ended finite answer set binary non-visual","0.0","0.0","0.0","0.0","0.0","0.0","0.82","0.81","0.83"
+"Tree","closed-ended finite answer set non-binary visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Tree","closed-ended finite answer set non-binary non-visual","0.0","0.0","0.0","0.0","0.0","0.0","1.0","1.0","1.0"
+"Tree","unanswerable","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+
+
+Figure Type: Tree,Graph
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"Tree,Graph","closed-ended infinite answer set visual","0.0","0.0","0.0","0.0","0.0","0.0","0.86","0.91","0.82"
+"Tree,Graph","closed-ended infinite answer set non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Tree,Graph","closed-ended finite answer set binary visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Tree,Graph","closed-ended finite answer set binary non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Tree,Graph","closed-ended finite answer set non-binary visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Tree,Graph","closed-ended finite answer set non-binary non-visual","1.0","1.0","1.0","1.0","1.0","1.0","0.98","0.98","0.98"
+"Tree,Graph","unanswerable","0.64","0.47","1.0","0.64","0.47","1.0","0.95","0.92","0.99"
+
+
+Figure Type: Illustrative diagram
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"Illustrative diagram","closed-ended infinite answer set visual","0.0","0.0","0.0","0.0","0.0","0.0","0.91","0.9","0.92"
+"Illustrative diagram","closed-ended infinite answer set non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Illustrative diagram","closed-ended finite answer set binary visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Illustrative diagram","closed-ended finite answer set binary non-visual","0.0","0.0","0.0","0.0","0.0","0.0","1.0","1.0","1.0"
+"Illustrative diagram","closed-ended finite answer set non-binary visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Illustrative diagram","closed-ended finite answer set non-binary non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Illustrative diagram","unanswerable","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+
+
+Figure Type: Line Chart,Scatter Plot
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"Line Chart,Scatter Plot","closed-ended infinite answer set visual","0.0","0.0","0.0","0.0","0.0","0.0","1.0","1.0","1.0"
+"Line Chart,Scatter Plot","closed-ended infinite answer set non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Line Chart,Scatter Plot","closed-ended finite answer set binary visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Line Chart,Scatter Plot","closed-ended finite answer set binary non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Line Chart,Scatter Plot","closed-ended finite answer set non-binary visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Line Chart,Scatter Plot","closed-ended finite answer set non-binary non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Line Chart,Scatter Plot","unanswerable","0.5","0.33","1.0","0.5","0.33","1.0","0.93","0.88","0.98"
+
+
+Figure Type: Heat Map
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"Heat Map","closed-ended infinite answer set visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Heat Map","closed-ended infinite answer set non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Heat Map","closed-ended finite answer set binary visual","0.0","0.0","0.0","0.0","0.0","0.0","1.0","1.0","1.0"
+"Heat Map","closed-ended finite answer set binary non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Heat Map","closed-ended finite answer set non-binary visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Heat Map","closed-ended finite answer set non-binary non-visual","0.4","0.25","1.0","0.4","0.25","1.0","0.81","0.75","0.88"
+"Heat Map","unanswerable","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+
+
+Figure Type: Line Chart
+QA Type: closed-ended infinite answer set visual
+"figure_type","qa_type","rouge1_fmeasure","rouge1_precision","rouge1_recall","rougeL_fmeasure","rougeL_precision","rougeL_recall","bertscore_f1","bertscore_precision","bertscore_recall"
+"Line Chart","closed-ended infinite answer set visual","0.2","0.25","0.17","0.2","0.25","0.17","0.92","0.91","0.92"
+"Line Chart","closed-ended infinite answer set non-visual","0.37","0.5","0.3","0.37","0.5","0.3","0.9","0.9","0.91"
+"Line Chart","closed-ended finite answer set binary visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Line Chart","closed-ended finite answer set binary non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Line Chart","closed-ended finite answer set non-binary visual","0.33","0.33","0.33","0.33","0.33","0.33","0.98","0.98","0.98"
+"Line Chart","closed-ended finite answer set non-binary non-visual","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"
+"Line Chart","unanswerable","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0","1.0"

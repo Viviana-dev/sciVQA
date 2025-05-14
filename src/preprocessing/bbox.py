@@ -83,3 +83,21 @@ class BBox:
             round((self.x + self.w) / canvas_w, 4),
             round((self.y + self.h) / canvas_h, 4),
         )
+
+    def to_xy(self) -> tuple[float, float, float, float, str, int]:
+        """Convert a BBox to (x1, y1, x2, y2) format.
+
+        Returns
+        -------
+        tuple[float, float, float, float, str, int]
+            The bounding box in (x1, y1, x2, y2, text, conf) format.
+
+        """
+        return (
+            self.x,
+            self.y,
+            self.x + self.w,
+            self.y + self.h,
+            self.text,
+            self.conf,
+        )

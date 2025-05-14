@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from preprocessing.deplot_wrapper import deploit_table
 from preprocessing.image_utils import MAX_PIXELS, resize_and_pad
-from preprocessing.ocr_utils import extract_ocr_boxes, visualize_ocr_boxes
+from preprocessing.ocr_utils import extract_ocr_boxes
 from preprocessing.prompt_builder import build_prompt
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
