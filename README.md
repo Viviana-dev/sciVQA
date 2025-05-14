@@ -1,10 +1,23 @@
 # SciVQA
-## Models used for the task
+## Models used for the task (general VLLMs)
 - BLIP2 - 2.7B
 - LLAVA - 13B , LLAVA - 7B
 - OpenFlamingo v2 - 7B
 - mPLUG-owl-7B (Flamingo)
-- GPT3
+- GPT4-v
+- Gemini Pro
+- Pali3B
+## Models used for the task (chart-trained VLLMs)
+- ChartLLama
+- ChartAssistant
+- ChartInstruct
+- ChartAst
+## Chart specialist models
+- ChartBERT
+- Pix2Struct
+- Matcha
+- Unichart
+
 
 ## Transformation of graphs/charts (chart data extraction)
 - OGR (Optical Graph Recognotion) / OCR (Optical character recognition) eg. ChartOCR model
@@ -102,3 +115,19 @@ remove CHartQA add OCR
 
 ## Error analysis
 [error_analysis/error_analysis_zeroshot_no-ocr-v4.xlxs](error_analysis/error_analysis_zeroshot_no-ocr-v4.xlsx): error analysis of the best zero-shot generated data
+
+## Dataset:
+- Unichart
+- InstructChart
+- ChartGemma
+- ReachQA
+- WebCharts
+- ChartFC
+- PlotQA
+
+## Benchmark
+- ChartQA
+- Chart-to-Text
+- Chart-to-Table
+- OpenCQA
+- ChartX
