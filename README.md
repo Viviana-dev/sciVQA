@@ -17,6 +17,7 @@
 - Pix2Struct
 - Matcha
 - Unichart
+- Donut
 
 
 ## Transformation of graphs/charts (chart data extraction)
@@ -124,3 +125,5 @@ same set up different data (ChartQA)
 - ChartX
 - FigureQA
 - PlotQA
+- SciGraphQA
+- DVQA
