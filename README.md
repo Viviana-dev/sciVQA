@@ -42,7 +42,7 @@ dataset + methodology
 SciGraphQA (part of sciVQA dataset)
 https://arxiv.org/pdf/2308.03349
 
-DePlot ❌ -> Too bad results
+DePlot
 https://arxiv.org/abs/2212.10505
 
 Pix2Struct
@@ -84,34 +84,25 @@ change all the MLP layers of the text decoder
 `"target_modules": ["layers.26.mlp.up_proj", "layers.27.mlp.down_proj"]`
 change only final MLP layers of the text decoder
 
-✅ Version 6 & 7: [config 6](LoRa_versions/Version_6/adapter_config.json) [config 7](LoRa_versions/Version_7/adapter_config.json)
+✅ Version 6:
 `"target_modules": ["up_proj", "gate_proj", "down_proj", "q_proj", "v_proj"]`
 change all MLP layers and query and value attention layer
 
-✅ Version 8: [config](LoRa_versions/Version_8/adapter_config.json)
-`"target_modules": ["v_proj", "up_proj", "gate_proj", "down_proj", "q_proj", "k_proj"]`
-Add 10% White padding around the Image
+🚧 Version 7:
+`"target_modules": ["visual.blocks.X.attn.qkv", "visual.blocks.X.attn.proj"]`
+change only attention layers of the visual encoder (visual encoder use a single qkv linear layer instead of separate   `q_proj`, `k_proj`, `v_proj`)
 
-✅ Version 9: [config](LoRa_versions/Version_9/adapter_config.json)
-`"target_modules": ["q_proj", "v_proj", "o_proj", "k_proj", "up_proj", "gate_proj", "down_proj", "visual.blocks.X.attn.proj", "visual.blocks.X.attn.qkv"]`
-Update Prompt
+🚧 Version 8:
+Try to target merge modules o visual encoder network layers ??
 
-✅ Version 10 & 11: [config 10](LoRa_versions/Version_10/adapter_config.json) [config 11](LoRa_versions/Version_11/adapter_config.json)
-`"target_modules": ["q_proj", "v_proj", "up_proj", "gate_proj", "down_proj", , "visual.blocks.X.attn.proj", "visual.blocks.X.attn.qkv"]`
-Add ChartQA dataset to train
+🚧 Version 9:
+Try different adapters?
 
-✅ Version 12: [config](LoRa_versions/Version_12/adapter_config.json)
-`"target_modules": ["q_proj", "v_proj", "o_proj", "k_proj", "up_proj", "gate_proj", "down_proj", "proj", "qkv"]`
-Skip ChartQA again
+🚧 Version 10:
+Same set up different models (see Leaderboard https://huggingface.co/spaces/opencompass/open_vlm_leaderboard )
 
-✅ Version 13: [config](LoRa_versions/Version_13/adapter_config.json) <- Gets very bad results
-`"target_modules": ["q_proj", "v_proj", "o_proj", "k_proj", "up_proj", "gate_proj", "down_proj", "proj", "qkv"]`
-add ChartQA again
-
-🚧 Version 14: [config](LoRa_versions/Version_14/adapter_config.json)
-`"target_modules": "^(?!.*visual).*(?:o_proj|up_proj|v_proj|down_proj|k_proj|q_proj|gate_proj).*"`
-Taeget modules all decoding layers no vision layers
-remove CHartQA add OCR
+🚧 Version 11:
+same set up different data (ChartQA)
 
 ## Error analysis
 [error_analysis/error_analysis_zeroshot_no-ocr-v4.xlxs](error_analysis/error_analysis_zeroshot_no-ocr-v4.xlsx): error analysis of the best zero-shot generated data
@@ -131,3 +122,5 @@ remove CHartQA add OCR
 - Chart-to-Table
 - OpenCQA
 - ChartX
+- FigureQA
+- PlotQA
