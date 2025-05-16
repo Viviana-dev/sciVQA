@@ -7,8 +7,6 @@ from pathlib import Path
 
 from PIL import Image
 
-from preprocessing.ocr_utils import visualize_ocr_boxes
-
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 
@@ -53,6 +51,7 @@ def build_dynamic_prompt(entry, split="validation", save_sample_path: Path = Non
     answer_options = entry.get("answer_options", "")
     region_block = entry.get("region_block", None)
     random_state: bool = random.choice([True, False])
+    previous_predictions = entry.get("answer_pred", None)
 
     qa_types = parse_qa_types(qa_type_raw)
 
@@ -61,8 +60,8 @@ def build_dynamic_prompt(entry, split="validation", save_sample_path: Path = Non
         prompt += f" with {figs_numb} subfigures"
     prompt += "."
 
-    if region_block:
-        prompt += f"\nThe following chart regions were detected with OCR (they may contain" " errors): \n{region_block}"
+    # if region_block:
+    #    prompt += f"\nThe following chart regions were detected with OCR (they may contain" " errors): \n{region_block}"
 
     if caption:
         prompt += f"\nThe caption is: '{caption}'."
@@ -87,13 +86,31 @@ def build_dynamic_prompt(entry, split="validation", save_sample_path: Path = Non
             parsed_options = ast.literal_eval(answer_options)
             options = {k: v for d in parsed_options for k, v in d.items()}
             prompt += f"\nAvailable options: {options}."
-            prompt += "\nRespond only with the corresponding option keyword(s) (e.g., 'A' or 'A,B' if multiple apply)."
+            prompt += "\nRespond only with the corresponding option keyword(s) (e.g., 'A' or 'A,B' if multiple apply, without space between)."
             prompt += "\nDo not include explanations, full sentences, or option text."
 
+    prompt += "\nIf the answer cannot be inferred from the figure and caption, please reply with the sentence: 'It is not possible to answer this question based only on the provided data.'"
+
     prompt += (
-        "\nIf the answer cannot be inferred from the figure and caption, please reply with the sentence: 'It is not possible to answer this question based only on the provided data.'"
-        "\n\nResponse:"
+        "\n---\n"
+        "<thinking> Reasoning (do NOT respond yet)\n"
+        "Step 1 Identify the figure type and its axes / legend.\n"
+        "Step 2 Locate the graphical elements relevant to the question.\n"
+        "Step 3 Extract the key-value information.\n"
+        "Step 4 Read the required values or qualitative trends.\n"
+        "Step 5 Form the short response requested above.\n"
+        "---\n"
+        "Final respond:\n"
+        "<answer>\n"
     )
+
+    # if previous_predictions:
+    #    prompt += f"\n\nPrevious response: '{previous_predictions}'"
+    #    prompt += (
+    #        "\nEvaluate the previous response for correctness. "
+    #        "If the response is accurate, repeat it. "
+    #        "If there are any errors, provide a corrected version instead."
+    #    )
 
     if random_state and save_sample_path:
         save_path = Path(path.join(save_sample_path, instance_id))

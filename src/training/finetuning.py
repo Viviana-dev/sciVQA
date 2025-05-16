@@ -1,3 +1,4 @@
+import copy
 import random
 import shutil
 import sys
@@ -6,22 +7,25 @@ from pathlib import Path
 
 import torch
 import wandb
-from peft import LoraConfig, TaskType, get_peft_model
+from peft import LoraConfig, PeftModel, TaskType, get_peft_model
+from rouge_score import rouge_scorer
 from torch.utils.data import Dataset
-from transformers import AutoModelForImageTextToText, AutoProcessor, Conv1D, EarlyStoppingCallback, Qwen2VLProcessor
+from transformers import AutoModelForImageTextToText, AutoProcessor, EarlyStoppingCallback, Qwen2VLProcessor
 from trl import SFTConfig, SFTTrainer
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
+
 from helpers.constants import LOARA_VERSIONS_PATH
 from helpers.qwen_util import custom_process_vision_info
 from training.dataset import SciVQAConversationDataset
-from training.gpu_cleaner import clear_memory
 
 environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 environ.setdefault("WANDB_SILENT", "true")
 environ["CUDA_LAUNCH_BLOCKING"] = "1"
 environ["TORCH_USE_CUDA_DSA"] = "1"
+
+rouge_scorer = rouge_scorer.RougeScorer(["rougeL"], use_stemmer=True)
 
 
 def trainLoraModel(
@@ -38,10 +42,11 @@ def trainLoraModel(
     lora_dropout: float,
     target_modules: list[str] | str,
 ) -> None:
-    clear_memory()
+    model_dir = Path(path.join(output_dir, "model"))
 
     random.seed(42)
     torch.manual_seed(42)
+    torch.cuda.manual_seed_all(42)
 
     # Load the SciVQA conversation‑style datasets
     train_dataset: Dataset = SciVQAConversationDataset(split="train")
@@ -50,40 +55,70 @@ def trainLoraModel(
     # train_chartqa_dataset: Dataset = ChartQAConversationDataset(split="train")
     # train_dataset = ConcatDataset([train_dataset, train_chartqa_dataset])
 
-    model = AutoModelForImageTextToText.from_pretrained(
-        model_name,
-        torch_dtype=compute_dtype,
-        device_map="auto",
-        attn_implementation="flash_attention_2",
-        trust_remote_code=True,
-        use_cache=False,
-    )
+    # check if model exist or if it is empty
+    if path.exists(model_dir) and len(list(model_dir.iterdir())) > 0:
+        print(f"Model already exists in {model_dir}.")
 
-    processor = AutoProcessor.from_pretrained(model_name, use_fast=False)
+        model = AutoModelForImageTextToText.from_pretrained(
+            model_dir,
+            torch_dtype=compute_dtype,
+            device_map="auto",
+            attn_implementation="flash_attention_2",
+            trust_remote_code=True,
+            use_cache=False,
+        )
 
-    special_tokens_dict = {"additional_special_tokens": ["<box>", "</box>"]}
-    processor.tokenizer.add_special_tokens(special_tokens_dict)
+        processor = (AutoProcessor.from_pretrained(model_dir, use_fast=False),)
+        special_tokens_dict = {"additional_special_tokens": ["<box>", "</box>", "<thinking>", "<answer>"]}
+        processor.tokenizer.add_special_tokens(special_tokens_dict)
+        processor.tokenizer.padding_side = "left"
 
-    # apply the new special tokens to the model
-    model.resize_token_embeddings(len(processor.tokenizer))
+        model.resize_token_embeddings(len(processor.tokenizer))
 
-    peft_config = LoraConfig(
-        lora_alpha=lora_alpha,
-        lora_dropout=lora_dropout,
-        r=lora_rank,
-        bias="none",
-        target_modules=target_modules,
-        # rank_pattern={
-        #    r"^visual\.": 16, # -> Reduce the number of parameters in the visual module
-        #    r"^layers\.\d+\.mlp\.": 32, # -> Avg number of parameters in the mlp module
-        #    r"^layers\.\d+\.self_attn": 64, # -> Full power for the self attention modules (decode)
-        # },
-        modules_to_save=["lm_head"],
-        task_type=TaskType.CAUSAL_LM,
-    )
+        peft_model = PeftModel.from_pretrained(
+            model,
+            model_dir,
+            torch_dtype=compute_dtype,
+            device_map="auto",
+            attn_implementation="flash_attention_2",
+            trust_remote_code=True,
+            use_cache=False,
+            is_trainable=True,
+        )
 
-    peft_model = get_peft_model(model, peft_config)
-    peft_model.print_trainable_parameters()
+        peft_model.resize_token_embeddings(len(processor.tokenizer))
+    else:
+        print(f"Model does not exist in {model_dir}.")
+        model = AutoModelForImageTextToText.from_pretrained(
+            model_name,
+            torch_dtype=compute_dtype,
+            device_map="auto",
+            attn_implementation="flash_attention_2",
+            trust_remote_code=True,
+            use_cache=False,
+        )
+
+        processor = AutoProcessor.from_pretrained(model_name, use_fast=False)
+
+        special_tokens_dict = {"additional_special_tokens": ["<box>", "</box>", "<thinking>", "<answer>"]}
+        processor.tokenizer.add_special_tokens(special_tokens_dict)
+        processor.tokenizer.padding_side = "left"
+
+        model.resize_token_embeddings(len(processor.tokenizer))
+
+        peft_config = LoraConfig(
+            lora_alpha=lora_alpha,
+            lora_dropout=lora_dropout,
+            r=lora_rank,
+            bias="none",
+            target_modules=target_modules,
+            modules_to_save=["lm_head", "model.embed_tokens"],
+            task_type=TaskType.CAUSAL_LM,
+        )
+        peft_model = get_peft_model(model, peft_config)
+
+        peft_model.resize_token_embeddings(len(processor.tokenizer))
+        peft_model.print_trainable_parameters()
 
     training_args = SFTConfig(
         run_name=f"LoRa-{version}",
@@ -117,15 +152,15 @@ def trainLoraModel(
         # Gradient checkpointing settings
         gradient_checkpointing_kwargs={"use_reentrant": False},  # Options for gradient checkpointing
         # Dataset configuration
+        dataloader_num_workers=16,
         dataset_text_field="",  # Text field in dataset
         dataset_kwargs={"skip_prepare_dataset": True},  # Additional dataset options
         remove_unused_columns=False,  # Whether to remove unused columns in the dataset
         label_names=["labels"],
-        # auto_find_batch_size=True # Names of the label columns
     )
 
     wandb.init(
-        project=f"qwen2.5-VL-7b-instruct-chart",
+        project=f"{model_name.split('/')[-1]}-chart",
         name=f"{version}",
         config=training_args,
     )
@@ -136,38 +171,41 @@ def trainLoraModel(
     )
 
     def collate_fn(batch):
+        texts, images = [], []
+        for item in batch:
+            image_inputs, _ = custom_process_vision_info(item["messages"])
+            txt = processor.apply_chat_template(
+                item["messages"],
+                tokenize=False,
+                add_generation_prompt=False,
+            ).strip()
+            texts.append(txt)
+            images.append(image_inputs)
 
-        all_messages = [item["messages"] for item in batch]
-        texts = processor.apply_chat_template(all_messages, tokenize=False)
+        batch = processor(text=texts, images=images, padding=True, return_tensors="pt")
+        input_ids = batch["input_ids"]
+        labels = input_ids.clone()
 
-        image_inputs, _ = custom_process_vision_info(all_messages)
-
-        batch = processor(text=texts, images=image_inputs, return_tensors="pt", padding=True)
-
-        # The labels are the input_ids, and we mask the padding tokens in the loss computation
-        labels = batch["input_ids"].clone()  # Clone input IDs for labels
-        labels[labels == processor.tokenizer.pad_token_id] = -100  # Mask padding tokens in labels
-
-        # Ignore the image token index in the loss computation (model specific)
-        if isinstance(processor, Qwen2VLProcessor):  # Check if the processor is Qwen2VLProcessor
-            image_tokens = [151652, 151653, 151655]  # Specific image token IDs for Qwen2VLProcessor
-        else:
-            image_tokens = [processor.tokenizer.convert_tokens_to_ids(processor.image_token)]
-
-        # Mask image token IDs in the labels
-        for image_token_id in image_tokens:
-            labels[labels == image_token_id] = -100  # Mask image token IDs in labels
-
-        # Mask the <box> and </box> token IDs in the labels
-        box_token_ids = [
+        pad_id = processor.tokenizer.pad_token_id
+        box_ids = [
             processor.tokenizer.convert_tokens_to_ids("<box>"),
             processor.tokenizer.convert_tokens_to_ids("</box>"),
         ]
-        for token_id in box_token_ids:
-            labels[labels == token_id] = -100
+        image_ids = (
+            [151652, 151653, 151655]  # Qwen‑2 VL internal image tokens
+            if isinstance(processor, Qwen2VLProcessor)
+            else [processor.tokenizer.convert_tokens_to_ids(processor.image_token)]
+        )
+
+        static_mask_ids = torch.tensor([pad_id, *box_ids, *image_ids], device=labels.device)
+        labels[torch.isin(labels, static_mask_ids)] = -100
+
+        answer_id = processor.tokenizer.convert_tokens_to_ids("<answer>")
+        answer_positions = (input_ids == answer_id).nonzero(as_tuple=False)
+        for batch_idx, pos in answer_positions:
+            labels[batch_idx, : pos + 1] = -100  # mask CoT + <answer> token
 
         batch["labels"] = labels
-
         return batch
 
     trainer: SFTTrainer = SFTTrainer(
@@ -186,7 +224,11 @@ def trainLoraModel(
     trainer.train()
     print("Training complete.")
     # Save the model
-    trainer.save_model(path.join(output_dir, "model"))
+    trainer.save_model(model_dir)
+
+    # save processor
+    processor.save_pretrained(model_dir)
+
     lora_versions_path = Path(path.join(LOARA_VERSIONS_PATH, version))
     if not lora_versions_path.exists():
         lora_versions_path.mkdir(parents=True, exist_ok=True)
@@ -199,4 +241,12 @@ def trainLoraModel(
             path.join(lora_versions_path, "adapter_config.json"),
         )
     else:
-        print(f"adapter_config.json not found in {output_dir}/model")
+        print(f"adapter_config.json not found in {model_dir}")
+
+    # clean checkpoints except the folder named 'model'
+    for item in output_dir.iterdir():
+        if item.is_dir() and item.name != "model":
+            shutil.rmtree(item)
+            print(f"Removed {item}")
+        else:
+            print(f"Skipped {item}")
