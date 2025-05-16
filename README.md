@@ -17,6 +17,7 @@
 - Pix2Struct
 - Matcha
 - Unichart
+- Donut
 
 
 ## Transformation of graphs/charts (chart data extraction)
@@ -42,7 +43,7 @@ dataset + methodology
 SciGraphQA (part of sciVQA dataset)
 https://arxiv.org/pdf/2308.03349
 
-DePlot ❌ -> Too bad results
+DePlot
 https://arxiv.org/abs/2212.10505
 
 Pix2Struct
@@ -137,6 +138,10 @@ Save also the Processor now
 - Chart-to-Table
 - OpenCQA
 - ChartX
+- FigureQA
+- PlotQA
+- SciGraphQA
+- DVQA
 
 ## Notes:
 Target Modules: ^(?!.*visual).*(?:o_proj|up_proj|v_proj|down_proj|k_proj|q_proj|gate_proj).*\
