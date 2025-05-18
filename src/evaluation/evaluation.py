@@ -1,24 +1,26 @@
 import csv
 import shutil
 import sys
+from asyncio import gather
 from os import makedirs, path
 from pathlib import Path
 from typing import Literal
-from unittest import result
 
 import pandas as pd
 import torch
-import tqdm
+from accelerate import Accelerator
+from accelerate.utils import gather_object
 from peft import PeftModel
-from PIL import Image
-from pytz import VERSION
+from torch.utils.data import DataLoader
+from tqdm.auto import tqdm
 from transformers import AutoModelForImageTextToText, AutoProcessor
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
-from helpers.build_prompt import build_dynamic_prompt
-from helpers.constants import BASE_PATH, CSV_PATH, LORA_PATH, PREDICITION_PATH
-from helpers.data_load import load_datasets, load_real_image_path
+from dataset import SciVQAConversationDataset
+from scoring import compute_evaluation_scores
+
+from helpers.constants import BASE_PATH, LORA_PATH, PREDICITION_PATH
 from helpers.qwen_util import custom_process_vision_info
 
 
@@ -28,69 +30,48 @@ def strip_cot(text: str) -> str:
     return text.strip()
 
 
+def _maybe_create_dir(dir_path: str):
+    if not path.exists(dir_path):
+        print(f"Creating directory: {dir_path}")
+        makedirs(dir_path)
+
+
+def _maybe_save_csv(df: pd.DataFrame, file_path: str):
+    df.to_csv(file_path, index=False, quoting=csv.QUOTE_ALL)
+    print(f"Predictions saved to {file_path}")
+
+
 @torch.inference_mode()
 def evaluate_model(
-    processor, model, save_sample_path: Path, dataset_type: Literal["train", "validation", "test"] = "validation"
+    processor: AutoProcessor,
+    model: AutoModelForImageTextToText,
+    save_sample_path: Path,
+    batches: DataLoader,
+    dataset_type: Literal["train", "validation", "test"] = "validation",
+    accelerator: Accelerator | None = None,
+    dataset_len: int = 0,
 ):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    if dataset_type == "train":
-        dataset = load_datasets(validation=False, train=True, test=False)
-    elif dataset_type == "test":
-        dataset = load_datasets(validation=False, train=False, test=True)
-    else:
-        # default to validation
-        dataset = load_datasets(validation=True, train=False, test=False)
-    total_rows = len(dataset)
-
-    batch_size = 64
     processor.tokenizer.padding_side = "left"
-
+    pbar = tqdm(total=dataset_len, desc="Evaluating", unit="Question", unit_scale=True)
     results = []
-    for start in tqdm.tqdm(range(0, total_rows, batch_size), desc="Evaluating", unit="batch"):
-        batch = dataset.iloc[start : start + batch_size]
+    for batch in batches:
+        instance_ids = batch["instance_id"]
+        messages = batch["messages"]
+        gold_answers = batch["answer"]
 
-        instance_ids = batch["instance_id"].tolist()
-        image_paths = batch["image_file"].tolist()
-        if dataset_type != "test":
-            gold_answers = batch.get("answer", [""] * len(batch)).tolist()
+        texts = [processor.apply_chat_template(msg, tokenize=False, add_generation_prompt=True) for msg in messages]
+        images, _ = custom_process_vision_info(messages=messages)
 
-        prompts_states = [
-            build_dynamic_prompt(entry, split=dataset_type, save_sample_path=save_sample_path)
-            for _, entry in batch.iterrows()
-        ]
-        prompt_texts = [p for p, _ in prompts_states]
-        states = [s for _, s in prompts_states]
-
-        messages_batch = [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "image": load_real_image_path(img, **{dataset_type: True}),
-                    },
-                    {
-                        "type": "text",
-                        "text": prompt,
-                    },
-                ],
-            }
-            for img, prompt in zip(image_paths, prompt_texts)
-        ]
-
-        texts = [processor.apply_chat_template([m], tokenize=False, add_generation_prompt=True) for m in messages_batch]
-        images, _ = zip(*[custom_process_vision_info([m]) for m in messages_batch])
-
-        inputs = processor(text=texts, images=list(images), padding=True, return_tensors="pt", padding_side="left").to(
-            device
+        inputs = processor(text=texts, images=images, padding=True, return_tensors="pt", padding_side="left").to(
+            accelerator.device if accelerator else torch.device("cuda" if torch.cuda.is_available() else "cpu")
         )
 
-        model.eval()
         eos_token_id = processor.tokenizer.eos_token_id
         pad_token_id = processor.tokenizer.pad_token_id
-        generated_ids = model.generate(
+        generate_fn = model.module.generate if hasattr(model, "module") else model.generate
+        generated_ids = generate_fn(
             **inputs,
-            max_new_tokens=64,
+            max_new_tokens=128,
             eos_token_id=eos_token_id,
             pad_token_id=pad_token_id,
         )
@@ -98,23 +79,26 @@ def evaluate_model(
         raw_outputs = processor.batch_decode(
             generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
         )
-        answers = [strip_cot(text) for text in raw_outputs]
+        answers = [strip_cot(output) for output in raw_outputs]
 
-        if dataset_type == "test":
-            for instance_id, answer in zip(instance_ids, answers):
-                results.append({"instance_id": instance_id, "answer_pred": answer})
-        else:
-            for instance_id, answer, gold, state in zip(instance_ids, answers, gold_answers, states):
-                results.append({"instance_id": instance_id, "answer_pred": answer})
+        for answer, instance_id, gold_answer in zip(answers, instance_ids, gold_answers):
+            results.append({"instance_id": instance_id, "answer_pred": answer})
+            if dataset_type != "test":
                 save_path = Path(path.join(save_sample_path, instance_id))
                 prompt_file_path = path.join(save_path, "prompt.txt")
-                if state and path.exists(prompt_file_path):
-                    if answer == gold:
+                if path.exists(prompt_file_path):
+                    if answer == gold_answer:
                         shutil.rmtree(save_path)
                     else:
                         with open(prompt_file_path, "a", encoding="utf-8") as f:
                             f.write(f"\n\n\nAnswer: {answer}")
-                            f.write(f"\nGold answer: {gold}")
+                            f.write(f"\nGold answer: {gold_answer}")
+
+        if accelerator:
+            accelerator.wait_for_everyone()
+            pbar.update(accelerator.num_processes)
+        else:
+            pbar.update(len(batch))
 
     return results
 
@@ -124,9 +108,20 @@ def evaluate_model_predictions(
     model_name: str,
     version: str,
     dataset_type: Literal["train", "validation", "test"] = "validation",
+    accelerate: bool = False,
+    scoring: bool = True,
+    batch_size: int = 1,
 ):
+    accelerator = Accelerator() if accelerate else None
+    if accelerator and accelerator.is_main_process:
+        print("Accelerator is initialized.")
+    elif accelerator is None:
+        print("Accelerator is not initialized.")
 
-    # load also the preprocessor form the adapter path
+    dataset = SciVQAConversationDataset(split=dataset_type)
+    dataloader = DataLoader(dataset, batch_size=batch_size, collate_fn=dataset.collate_fn, pin_memory=True)
+    device_map = {"": accelerator.process_index} if accelerate else "auto"
+
     if adapter_path is None:
         print("Start Zero Shot Evaluation...")
         processor = AutoProcessor.from_pretrained(model_name, use_fast=False)
@@ -134,7 +129,7 @@ def evaluate_model_predictions(
             model_name,
             torch_dtype=torch.bfloat16,
             attn_implementation="flash_attention_2",
-            device_map="auto",
+            device_map=device_map,
         )
     else:
         processor = AutoProcessor.from_pretrained(adapter_path, use_fast=False)
@@ -142,76 +137,70 @@ def evaluate_model_predictions(
             model_name,
             torch_dtype=torch.bfloat16,
             attn_implementation="flash_attention_2",
-            device_map="sequential",
+            device_map=device_map,
         )
 
         special_tokens_dict = {"additional_special_tokens": ["<box>", "</box>", "<thinking>", "<answer>"]}
         processor.tokenizer.add_special_tokens(special_tokens_dict)
         base_model.resize_token_embeddings(len(processor.tokenizer))
+
         model = PeftModel.from_pretrained(
             base_model,
             adapter_path,
             torch_dtype=torch.bfloat16,
-            device_map="auto",
+            device_map=device_map,
         )
 
+    if accelerator:
+        model, dataloader = accelerator.prepare(model, dataloader)
+
+    # model.eval()
     sample_path = Path(path.join(BASE_PATH, "sample", version))
 
-    results = evaluate_model(processor, model, sample_path, dataset_type)
-    # save results to a csv file
-    prediction_file_path = path.join(PREDICITION_PATH, "predictions", "predictions.csv")
-    if not path.exists(path.dirname(prediction_file_path)):
-        print(f"Creating directory: {path.dirname(prediction_file_path)}")
-        makedirs(path.dirname(prediction_file_path))
+    if accelerate:
+        accelerator.wait_for_everyone()
 
-    # create df from results
-    df = pd.DataFrame(results)
-    df.to_csv(prediction_file_path, index=False, quoting=csv.QUOTE_ALL)
-    print(f"Predictions saved to {prediction_file_path}")
+    results = evaluate_model(
+        processor, model, sample_path, dataloader, dataset_type, accelerator, len(dataset) // batch_size
+    )
+
+    if accelerate:
+        accelerator.wait_for_everyone()
+        gathered_results = gather_object(results) if accelerator else results
+
+    if accelerate and accelerator.is_main_process:
+        print("Gathered results len:", len(gathered_results))
+        prediction_dir = path.dirname(path.join(PREDICITION_PATH, "predictions", "predictions.csv"))
+        _maybe_create_dir(prediction_dir)
+
+        df = pd.DataFrame(gathered_results)
+        _maybe_save_csv(df, path.join(PREDICITION_PATH, "predictions", "predictions.csv"))
+
+        if scoring:
+            if TYPE != "test":
+                compute_evaluation_scores(version=VERSION)
+    else:
+        print("Results len:", len(results))
+        prediction_dir = path.dirname(path.join(PREDICITION_PATH, "predictions", "predictions.csv"))
+        _maybe_create_dir(prediction_dir)
+        df = pd.DataFrame(results)
+        _maybe_save_csv(df, path.join(PREDICITION_PATH, "predictions", "predictions.csv"))
+        if scoring:
+            if TYPE != "test":
+                compute_evaluation_scores(version=VERSION)
 
 
 if __name__ == "__main__":
-    VERSION = "Version_15"
+    VERSION = "Version_21"
+    TYPE = "validation"  # "train", "validation", "test"
+    ADAPTER_PATH = Path(path.join(LORA_PATH, "no-ocr-v4", VERSION, "model"))
     MODEL_NAME = "Qwen/Qwen2.5-VL-7B-Instruct"
-    OUTPUT_DIR = Path(path.join(LORA_PATH, "no-ocr-v4", VERSION))
-    MODEL_PATH = Path(path.join(OUTPUT_DIR, "model"))
-
-    def save_df_back(split: str, df: pd.DataFrame):
-        csv_path = path.join(CSV_PATH, f"{split}.csv")
-        df.to_csv(csv_path, index=False)
-
-    model = AutoModelForImageTextToText.from_pretrained(
-        MODEL_NAME,
-        torch_dtype=torch.bfloat16,
-        attn_implementation="flash_attention_2",
-        device_map="auto",
+    evaluate_model_predictions(
+        adapter_path=ADAPTER_PATH,
+        model_name=MODEL_NAME,
+        version=VERSION,
+        dataset_type=TYPE,  # "train", "validation", "test"
+        accelerate=True,
+        scoring=True,
+        batch_size=1,
     )
-    processor = AutoProcessor.from_pretrained(MODEL_NAME, use_fast=False)
-    special_tokens_dict = {"additional_special_tokens": ["<box>", "</box>", "<thinking>", "<answer>"]}
-    processor.tokenizer.add_special_tokens(special_tokens_dict)
-    model.resize_token_embeddings(len(processor.tokenizer))
-    model = PeftModel.from_pretrained(
-        model,
-        MODEL_PATH,
-        torch_dtype=torch.bfloat16,
-        device_map="auto",
-    )
-    # result = list of {"instance_id": str, "answer_pred": str}
-    results = evaluate_model(processor, model, Path(path.join(BASE_PATH, "sample", VERSION)), dataset_type="validation")
-
-    # add the resuts to the dataset
-    dataset = load_datasets(validation=True, train=False, test=False)
-    dataset["answer_pred"] = ""
-    for result in results:
-        dataset.loc[dataset["instance_id"] == result["instance_id"], "answer_pred"] = result["answer_pred"]
-
-    # save the dataset with the predictions
-    save_df_back("validation", dataset)
-
-    # same for train:
-    dataset = load_datasets(validation=False, train=True, test=False)
-    results = evaluate_model(processor, model, Path(path.join(BASE_PATH, "sample", VERSION)), dataset_type="train")
-    dataset["answer_pred"] = ""
-    for result in results:
-        dataset.loc[dataset["instance_id"] == result["instance_id"], "answer_pred"] = result["answer_pred"]
-    save_df_back("train", dataset)

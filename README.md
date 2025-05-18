@@ -114,11 +114,39 @@ add ChartQA again
 remove ChartQA add OCR with new specialtoken `<box>` and `<\box>`\
 Save also the Processor now
 
-✅ Version 15: [config](LoRa_versions/Version_15/adapter_config.json) <---- Best model til now\
-`"target_modules": "^(?!.*visual).*(?:o_proj|up_proj|v_proj|down_proj|k_proj|q_proj|gate_proj).*\"`
+✅ Version 15: [config](LoRa_versions/Version_15/adapter_config.json)\
+`"target_modules": "^(?!.*visual).*(?:o_proj|up_proj|v_proj|down_proj|k_proj|q_proj|gate_proj).*"`
 
 ✅ Version 16: [config](LoRa_versions/Version_16/adapter_config.json)\
-`"target_modules": ["q_proj", "v_proj", "up_proj", "gate_proj", "down_proj"]`
+`"target_modules": ["q_proj", "v_proj", "up_proj", "gate_proj", "down_proj", "proj", "qkv"]`
+
+✅ Version 16: [config](LoRa_versions/Version_16/adapter_config.json)\
+`"target_modules": ["q_proj", "v_proj", "up_proj", "gate_proj", "down_proj", "proj", "qkv"]`
+
+✅ Version 17: [config](LoRa_versions/Version_17/adapter_config.json)\
+`"target_modules": ["q_proj", "v_proj", "up_proj", "gate_proj", "down_proj", "proj", "qkv"]`\
+Finetune Gemma3-8B-it --> Fail --> Worst results
+
+✅ Version 18: [config](LoRa_versions/Version_18/adapter_config.json)\
+`"target_modules": "^(?!.*visual).*(?:o_proj|up_proj|v_proj|down_proj|k_proj|q_proj|gate_proj).*"`\
+Try with rerurnnin and providing prvious answers
+
+✅ Version 19: [config](LoRa_versions/Version_19/adapter_config.json)\
+`"target_modules": ["q_proj", "v_proj", "up_proj", "gate_proj", "down_proj", "proj", "qkv"]`\
+Add CoT - remove OCR - remove retraining
+
+✅ Version 20: [config](LoRa_versions/Version_20/adapter_config.json)\
+`"target_modules": "^(?!.*visual).*(?:o_proj|up_proj|v_proj|down_proj|k_proj|q_proj|gate_proj).*"`\
+Add Acceleration - better distributed training
+
+✅ Version 21: [config](LoRa_versions/Version_21/adapter_config.json) <-- Best model - Latest for leaderboard \
+`"target_modules": "^(?!.*visual).*(?:o_proj|up_proj|v_proj|down_proj|k_proj|q_proj|gate_proj).*"`\
+Update CoT
+
+✅ Version 22: [config](LoRa_versions/Version_22/adapter_config.json)\
+`"target_modules": ["mlp.0", "mlp.2", "qkv", "attn.proj", "gate_proj", "up_proj", "q_proj", "v_proj", "k_proj", "down_proj","o_proj"]`\
+72B model,targe_modules = "all-linear"
+
 
 ## Error analysis
 [error_analysis/error_analysis_zeroshot_no-ocr-v4.xlxs](error_analysis/error_analysis_zeroshot_no-ocr-v4.xlsx): error analysis of the best zero-shot generated data

@@ -7,7 +7,8 @@ import pandas as pd
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
-from evaluation.metrics import bertS, rouge
+from metrics import bertS, rouge
+
 from helpers.constants import METRIC_PATH, PREDICITION_PATH, SCORES_PATH
 from helpers.data_load import load_datasets
 
@@ -147,4 +148,4 @@ def compute_evaluation_scores(version: str):
 
 
 if __name__ == "__main__":
-    compute_evaluation_scores(version="Version_4")
+    compute_evaluation_scores(version="Version_22")

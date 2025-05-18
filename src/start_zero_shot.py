@@ -1,5 +1,5 @@
 import sys
-from os import makedirs, path
+from os import path
 from pathlib import Path
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))

@@ -1,22 +1,19 @@
-import copy
 import random
-import shutil
 import sys
 from os import environ, path
 from pathlib import Path
 
 import torch
 import wandb
+from accelerate import Accelerator
+from accelerate.utils import DistributedDataParallelKwargs
 from peft import LoraConfig, PeftModel, TaskType, get_peft_model
-from rouge_score import rouge_scorer
 from torch.utils.data import Dataset
 from transformers import AutoModelForImageTextToText, AutoProcessor, EarlyStoppingCallback, Qwen2VLProcessor
 from trl import SFTConfig, SFTTrainer
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
-
-from helpers.constants import LOARA_VERSIONS_PATH
 from helpers.qwen_util import custom_process_vision_info
 from training.dataset import SciVQAConversationDataset
 
@@ -24,8 +21,6 @@ environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 environ.setdefault("WANDB_SILENT", "true")
 environ["CUDA_LAUNCH_BLOCKING"] = "1"
 environ["TORCH_USE_CUDA_DSA"] = "1"
-
-rouge_scorer = rouge_scorer.RougeScorer(["rougeL"], use_stemmer=True)
 
 
 def trainLoraModel(
@@ -36,17 +31,33 @@ def trainLoraModel(
     grad_acc: int,
     epochs: int,
     lr: float,
-    compute_dtype: torch.dtype,
-    lora_rank: int,
-    lora_alpha: int,
-    lora_dropout: float,
-    target_modules: list[str] | str,
+    dtype: torch.dtype = torch.bfloat16,
+    lora_rank: int = 64,
+    lora_alpha: int = 32,
+    lora_dropout: float = 0.05,
+    target_modules: list[str] | str = [
+        "q_proj",
+        "v_proj",
+        "o_proj",
+        "k_proj",
+        "up_proj",
+        "gate_proj",
+        "down_proj",
+        "proj",
+        "qkv",
+    ],
+    accelerate: bool = False,
 ) -> None:
     model_dir = Path(path.join(output_dir, "model"))
+    if accelerate:
+        kwargs = DistributedDataParallelKwargs(find_unused_parameters=False)
+        accelerator = Accelerator(kwargs_handlers=[kwargs], log_with="wandb")
+        device = accelerator.device
+    else:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     random.seed(42)
     torch.manual_seed(42)
-    torch.cuda.manual_seed_all(42)
 
     # Load the SciVQA conversation‑style datasets
     train_dataset: Dataset = SciVQAConversationDataset(split="train")
@@ -57,16 +68,23 @@ def trainLoraModel(
 
     # check if model exist or if it is empty
     if path.exists(model_dir) and len(list(model_dir.iterdir())) > 0:
-        print(f"Model already exists in {model_dir}.")
+        if accelerate:
+            if accelerator.is_main_process:
+                print(f"Model already exists in {model_dir}.")
+        else:
+            print(f"Model already exists in {model_dir}.")
 
         model = AutoModelForImageTextToText.from_pretrained(
             model_dir,
-            torch_dtype=compute_dtype,
-            device_map="auto",
+            torch_dtype=dtype,
+            device_map=None if accelerate else "auto",
             attn_implementation="flash_attention_2",
             trust_remote_code=True,
             use_cache=False,
         )
+
+        if accelerate:
+            model = model.to(device=device, dtype=dtype)
 
         processor = (AutoProcessor.from_pretrained(model_dir, use_fast=False),)
         special_tokens_dict = {"additional_special_tokens": ["<box>", "</box>", "<thinking>", "<answer>"]}
@@ -78,25 +96,31 @@ def trainLoraModel(
         peft_model = PeftModel.from_pretrained(
             model,
             model_dir,
-            torch_dtype=compute_dtype,
-            device_map="auto",
+            torch_dtype=dtype,
+            device_map=None if accelerate else "auto",
             attn_implementation="flash_attention_2",
             trust_remote_code=True,
             use_cache=False,
             is_trainable=True,
         )
 
-        peft_model.resize_token_embeddings(len(processor.tokenizer))
+        # peft_model.resize_token_embeddings(len(processor.tokenizer))
     else:
-        print(f"Model does not exist in {model_dir}.")
+        if accelerate:
+            if accelerator.is_main_process:
+                print(f"Model does not exist in {model_dir}.")
+        else:
+            print(f"Model does not exist in {model_dir}.")
         model = AutoModelForImageTextToText.from_pretrained(
             model_name,
-            torch_dtype=compute_dtype,
-            device_map="auto",
+            torch_dtype=dtype,
+            device_map=None if accelerate else "auto",
             attn_implementation="flash_attention_2",
             trust_remote_code=True,
             use_cache=False,
         )
+        if accelerate:
+            model = model.to(device=device, dtype=dtype)
 
         processor = AutoProcessor.from_pretrained(model_name, use_fast=False)
 
@@ -112,62 +136,76 @@ def trainLoraModel(
             r=lora_rank,
             bias="none",
             target_modules=target_modules,
-            modules_to_save=["lm_head", "model.embed_tokens"],
+            modules_to_save=["lm_head", "embed_tokens"],
             task_type=TaskType.CAUSAL_LM,
         )
         peft_model = get_peft_model(model, peft_config)
 
-        peft_model.resize_token_embeddings(len(processor.tokenizer))
-        peft_model.print_trainable_parameters()
+        # peft_model.resize_token_embeddings(len(processor.tokenizer))
+        if accelerate:
+            if accelerator.is_main_process:
+                peft_model.print_trainable_parameters()
+        else:
+            peft_model.print_trainable_parameters()
 
     training_args = SFTConfig(
-        run_name=f"LoRa-{version}",
+        run_name=f"{version}",
         output_dir=output_dir,  # Directory to save the model
         num_train_epochs=epochs,  # Number of training epochs
         per_device_train_batch_size=batch_size,  # Batch size for training
         per_device_eval_batch_size=batch_size,  # Batch size for evaluation
         gradient_accumulation_steps=grad_acc,  # Steps to accumulate gradients
-        gradient_checkpointing=True,  # Enable gradient checkpointing for memory efficiency
+        gradient_checkpointing=True,
         # Optimizer and scheduler settings
         optim="adamw_torch_fused",  # Optimizer type
         learning_rate=lr,  # Learning rate for training
         lr_scheduler_type="cosine",  # Type of learning rate scheduler
         # Logging and evaluation
         logging_steps=100,  # Steps interval for logging
-        eval_steps=100,  # Steps interval for evaluation
+        eval_steps=200,  # Steps interval for evaluation
         eval_strategy="steps",  # Strategy for evaluation
         save_strategy="steps",  # Strategy for saving the model
-        save_steps=100,  # Steps interval for saving
+        save_steps=200,  # Steps interval for saving
         metric_for_best_model="eval_loss",  # Metric to evaluate the best model
         greater_is_better=False,  # Whether higher metric values are better
-        load_best_model_at_end=True,  # Load the best model after training
         save_total_limit=3,  # Limit the number of saved models
         # Mixed precision and gradient settings
         bf16=True,  # Use bfloat16 precision
         max_grad_norm=1.0,  # gradient clipping for stability
-        max_length=128,
+        max_length=512,
         warmup_ratio=0.05,  # Ratio of total steps for warmup -> 5%
         # Hub and reporting
         report_to="wandb",  # Reporting tool for tracking metrics
         # Gradient checkpointing settings
         gradient_checkpointing_kwargs={"use_reentrant": False},  # Options for gradient checkpointing
         # Dataset configuration
-        dataloader_num_workers=16,
+        dataloader_num_workers=4,
         dataset_text_field="",  # Text field in dataset
         dataset_kwargs={"skip_prepare_dataset": True},  # Additional dataset options
         remove_unused_columns=False,  # Whether to remove unused columns in the dataset
         label_names=["labels"],
     )
 
-    wandb.init(
-        project=f"{model_name.split('/')[-1]}-chart",
-        name=f"{version}",
-        config=training_args,
-    )
+    if accelerate:
+        accelerator.init_trackers(
+            project_name=f"{model_name.split('/')[-1]}-chart",
+            config=training_args,
+            init_kwargs={
+                "wandb": {
+                    "name": f"{version}",
+                }
+            },
+        )
+    else:
+        wandb.init(
+            project=f"{model_name.split('/')[-1]}-chart",
+            name=f"{version}",
+            config=training_args,
+        )
 
     early_stop_cb = EarlyStoppingCallback(
         early_stopping_patience=4,  # how many eval rounds to wait
-        early_stopping_threshold=0.0001,  # require a strictly better score
+        early_stopping_threshold=0.001,  # require a strictly better score
     )
 
     def collate_fn(batch):
@@ -183,6 +221,11 @@ def trainLoraModel(
             images.append(image_inputs)
 
         batch = processor(text=texts, images=images, padding=True, return_tensors="pt")
+        for k, v in batch.items():
+            if torch.is_floating_point(v) and v.dtype != dtype:
+                batch[k] = v.to(dtype=dtype)
+        batch["attention_mask"] = batch["attention_mask"].to(torch.bool)
+
         input_ids = batch["input_ids"]
         labels = input_ids.clone()
 
@@ -219,34 +262,56 @@ def trainLoraModel(
         callbacks=[early_stop_cb],
     )
 
-    # Start training
-    print("Starting training...")
-    trainer.train()
-    print("Training complete.")
-    # Save the model
-    trainer.save_model(model_dir)
+    if accelerate:
+        trainer = accelerator.prepare(trainer)
 
-    # save processor
+    # Start training
+    if accelerate:
+        if accelerator.is_main_process:
+            print("Starting training...")
+    else:
+        print("Starting training...")
+    trainer.train()
+
+    if accelerate:
+        if accelerator.is_main_process:
+            print("Training complete.")
+    else:
+        print("Training complete.")
+
+    # Save LoRA adapter (essential)
+    peft_model.save_pretrained(model_dir)
+
+    # Save processor (tokenizer, etc.)
     processor.save_pretrained(model_dir)
 
-    lora_versions_path = Path(path.join(LOARA_VERSIONS_PATH, version))
+    # Optional: Save full model (if needed for inference directly without base model)
+    trainer.save_model(model_dir / "full_model")
+
+    """lora_versions_path = Path(path.join(LOARA_VERSIONS_PATH, version))
     if not lora_versions_path.exists():
         lora_versions_path.mkdir(parents=True, exist_ok=True)
     # move adapter_config.json to lora_versions_path
     config_path = Path(path.join(output_dir, "model", "adapter_config.json"))
     if path.exists(config_path):
-        print(f"Copy adapter_config.json to {lora_versions_path}")
+        if Accelerator().is_main_process:
+            print(f"Copy adapter_config.json to {lora_versions_path}")
         shutil.copyfile(
             config_path,
             path.join(lora_versions_path, "adapter_config.json"),
         )
     else:
-        print(f"adapter_config.json not found in {model_dir}")
+        if Accelerator().is_main_process:
+            print(f"adapter_config.json not found in {model_dir}")
 
     # clean checkpoints except the folder named 'model'
     for item in output_dir.iterdir():
         if item.is_dir() and item.name != "model":
             shutil.rmtree(item)
-            print(f"Removed {item}")
+            if Accelerator().is_main_process:
+                print(f"Removed {item}")
         else:
-            print(f"Skipped {item}")
+            if Accelerator().is_main_process:
+                print(f"Skipped {item}")"""
+
+    # accelerator.end_training()

@@ -49,9 +49,7 @@ def build_dynamic_prompt(entry, split="validation", save_sample_path: Path = Non
     compound = entry.get("compound", False)
     figs_numb = entry.get("figs_numb", 0)
     answer_options = entry.get("answer_options", "")
-    region_block = entry.get("region_block", None)
     random_state: bool = random.choice([True, False])
-    previous_predictions = entry.get("answer_pred", None)
 
     qa_types = parse_qa_types(qa_type_raw)
 
@@ -59,9 +57,6 @@ def build_dynamic_prompt(entry, split="validation", save_sample_path: Path = Non
     if compound:
         prompt += f" with {figs_numb} subfigures"
     prompt += "."
-
-    # if region_block:
-    #    prompt += f"\nThe following chart regions were detected with OCR (they may contain" " errors): \n{region_block}"
 
     if caption:
         prompt += f"\nThe caption is: '{caption}'."
@@ -72,8 +67,7 @@ def build_dynamic_prompt(entry, split="validation", save_sample_path: Path = Non
         prompt += "\n[Visual cue] Pay attention to color, position, shape, size, height, or direction."
     elif "non-visual" in qa_types:
         prompt += "\n[Data-only cue] Focus your response more on numeric or textual values."
-    prompt += "\nPlease also consider the caption of the figure to respond to the question."
-
+    prompt += "\nUse information from the caption when it directly supports your answer; otherwise, focus on data present in the visual itself."
     if "infinite answer set" in qa_types:
         prompt += (
             "\nRespond with a concise, one-word or very short phrase. No full sentences, no explanations."
@@ -94,23 +88,17 @@ def build_dynamic_prompt(entry, split="validation", save_sample_path: Path = Non
     prompt += (
         "\n---\n"
         "<thinking> Reasoning (do NOT respond yet)\n"
-        "Step 1 Identify the figure type and its axes / legend.\n"
+        "Step 1 Identify the figure type and its axes/legend.\n"
         "Step 2 Locate the graphical elements relevant to the question.\n"
         "Step 3 Extract the key-value information.\n"
-        "Step 4 Read the required values or qualitative trends.\n"
-        "Step 5 Form the short response requested above.\n"
+        "Step 4 Determine the required values or qualitative trends.\n"
+        "Step 5 Integrate insights from the caption when necessary.\n"
+        f"Step 6 {'Evaluate the provided answer choices and select the best one' if 'finite answer set' in qa_types and 'binary' not in qa_types else 'Ensure the answer is either Yes or No as required'}\n"
+        "Step 7 Produce the concise answer following the formatting rules above.\n"
         "---\n"
         "Final respond:\n"
         "<answer>\n"
     )
-
-    # if previous_predictions:
-    #    prompt += f"\n\nPrevious response: '{previous_predictions}'"
-    #    prompt += (
-    #        "\nEvaluate the previous response for correctness. "
-    #        "If the response is accurate, repeat it. "
-    #        "If there are any errors, provide a corrected version instead."
-    #    )
 
     if random_state and save_sample_path:
         save_path = Path(path.join(save_sample_path, instance_id))
