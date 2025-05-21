@@ -2,26 +2,37 @@ import csv
 import sys
 from os import makedirs, path
 from pathlib import Path
+from typing import Literal
 
 import pandas as pd
+from accelerate import Accelerator
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 from evaluation.metrics import bertS, rouge
 from helpers.constants import METRIC_PATH, PREDICITION_PATH, SCORES_PATH
-from helpers.dataset_utils import load_datasets
+from helpers.dataset_utils import ChartQAEvaluationDataset, load_datasets
 from helpers.logging_utils import setup_logger
 
 logger = setup_logger(__name__)
 
 
-def generate_golden_file():
+def generate_golden_file(golden_file_path: str, dataset_name: Literal["scivqa", "chartqa"] = "scivqa"):
     """Generate a golden file for evaluation.
     The golden file contains the expected answers for the validation dataset.
     It is used to compute the evaluation scores.
+
+    Parameters
+    ----------
+    dataset_name : str default "scivqa"
+        The name of the dataset to generate the golden file for.
+        Can be either "scivqa" or "chartqa".
     """
-    validation_ds = load_datasets(validation=True, train=False, test=False)
-    golden_file_path = path.join(PREDICITION_PATH, "golden", "golden.json")
+    if dataset_name == "scivqa":
+        validation_ds: pd.DataFrame = load_datasets(validation=True, train=False, test=False)
+    elif dataset_name == "chartqa":
+        validation_ds: pd.DataFrame = ChartQAEvaluationDataset(split="validation").table
+
     if path.exists(golden_file_path):
         logger.info(f"Golden file already exists at {golden_file_path}")
         return
@@ -34,8 +45,6 @@ def generate_golden_file():
         for i, row in validation_ds.iterrows():
             instance_id = row["instance_id"]
             answer = row["answer"]
-            qa_type = row["qa_pair_type"]
-            figure_type = row["figure_type"]
             golden_df = pd.concat(
                 [
                     golden_df,
@@ -43,8 +52,6 @@ def generate_golden_file():
                         {
                             "instance_id": [instance_id],
                             "answer": [answer],
-                            "qa_type": [qa_type],
-                            "figure_type": [figure_type],
                         }
                     ),
                 ],
@@ -54,7 +61,7 @@ def generate_golden_file():
         logger.info(f"Golden file created at {golden_file_path}")
 
 
-def compute_evaluation_scores(version: str):
+def compute_evaluation_scores(version: str, dataset_name: Literal["scivqa", "chartqa"] = "scivqa"):
     """Compute evaluation scores for the given version.
     The scores are computed using the ROUGE and BERTScore metrics.
     The scores are saved to a file in the Scores_versions directory.
@@ -63,15 +70,18 @@ def compute_evaluation_scores(version: str):
     ----------
     version : str
         The version of the model to evaluate.
+    dataset_name : str default "scivqa"
+        The name of the dataset to evaluate. Can be either "scivqa" or "chartqa".
     """
 
     scores_path = path.join(SCORES_PATH, version)
     if not path.exists(scores_path):
         makedirs(scores_path)
 
-    golden_file_path = path.join(PREDICITION_PATH, "golden", "golden.json")
+    golden_file_path = path.join(PREDICITION_PATH, "golden", dataset_name, "golden.json")
     if not path.exists(golden_file_path):
-        generate_golden_file()
+        logger.info(f"Golden file not found at {golden_file_path}. Generating a new one.")
+        generate_golden_file(golden_file_path=golden_file_path, dataset_name=dataset_name)
 
     prediction_foler_path = path.join(PREDICITION_PATH, "predictions")
     prediction_file_path = path.join(prediction_foler_path, "predictions.csv")
@@ -138,41 +148,43 @@ def compute_evaluation_scores(version: str):
     logger.info("\n%s", metrics_df.to_string(index=False))
 
     output_file.close()
-    list_of_metric_dfs = []
 
-    for figure_type in merged["figure_type"].unique():
-        figure_df = merged[merged["figure_type"] == figure_type]
-        metric_figure = []
-        for qa_type in figure_df["qa_type"].unique():
-            qa_df = figure_df[figure_df["qa_type"] == qa_type]
-            metric_figure.append(
-                {
-                    "figure_type": figure_type,
-                    "qa_type": qa_type,
-                    "rouge1_fmeasure": round(qa_df["rouge1_fmeasure"].mean(), 2),
-                    "rouge1_precision": round(qa_df["rouge1_precision"].mean(), 2),
-                    "rouge1_recall": round(qa_df["rouge1_recall"].mean(), 2),
-                    "rougeL_fmeasure": round(qa_df["rougeL_fmeasure"].mean(), 2),
-                    "rougeL_precision": round(qa_df["rougeL_precision"].mean(), 2),
-                    "rougeL_recall": round(qa_df["rougeL_recall"].mean(), 2),
-                    "bertscore_f1": round(qa_df["bertscore_f1"].mean(), 2),
-                    "bertscore_precision": round(qa_df["bertscore_precision"].mean(), 2),
-                    "bertscore_recall": round(qa_df["bertscore_recall"].mean(), 2),
-                }
-            )
-        metric_df = pd.DataFrame(metric_figure)
-        list_of_metric_dfs.append(metric_df)
+    if dataset_name == "scivqa":
+        list_of_metric_dfs = []
 
-    # join the dataframe on one csv and add a headline to every csv table
-    metrics_path = Path(path.join(METRIC_PATH, version, "metrics.csv"))
-    if not path.exists(path.dirname(metrics_path)):
-        logger.info(f"Creating directory: {path.dirname(metrics_path)}")
-        makedirs(path.dirname(metrics_path))
-    with open(metrics_path, "w") as f:
-        for i, metric_df in enumerate(list_of_metric_dfs):
-            if i != 0:
+        for figure_type in merged["figure_type"].unique():
+            figure_df = merged[merged["figure_type"] == figure_type]
+            metric_figure = []
+            for qa_type in figure_df["qa_type"].unique():
+                qa_df = figure_df[figure_df["qa_type"] == qa_type]
+                metric_figure.append(
+                    {
+                        "figure_type": figure_type,
+                        "qa_type": qa_type,
+                        "rouge1_fmeasure": round(qa_df["rouge1_fmeasure"].mean(), 2),
+                        "rouge1_precision": round(qa_df["rouge1_precision"].mean(), 2),
+                        "rouge1_recall": round(qa_df["rouge1_recall"].mean(), 2),
+                        "rougeL_fmeasure": round(qa_df["rougeL_fmeasure"].mean(), 2),
+                        "rougeL_precision": round(qa_df["rougeL_precision"].mean(), 2),
+                        "rougeL_recall": round(qa_df["rougeL_recall"].mean(), 2),
+                        "bertscore_f1": round(qa_df["bertscore_f1"].mean(), 2),
+                        "bertscore_precision": round(qa_df["bertscore_precision"].mean(), 2),
+                        "bertscore_recall": round(qa_df["bertscore_recall"].mean(), 2),
+                    }
+                )
+            metric_df = pd.DataFrame(metric_figure)
+            list_of_metric_dfs.append(metric_df)
+
+        # join the dataframe on one csv and add a headline to every csv table
+        metrics_path = Path(path.join(METRIC_PATH, version, "metrics.csv"))
+        if not path.exists(path.dirname(metrics_path)):
+            logger.info(f"Creating directory: {path.dirname(metrics_path)}")
+            makedirs(path.dirname(metrics_path))
+        with open(metrics_path, "w") as f:
+            for i, metric_df in enumerate(list_of_metric_dfs):
+                if i != 0:
+                    f.write("\n")
+                f.write(f"Figure Type: {metric_df['figure_type'].iloc[0]}\n")
+                f.write(f"QA Type: {metric_df['qa_type'].iloc[0]}\n")
+                metric_df.to_csv(f, index=False, quoting=csv.QUOTE_ALL)
                 f.write("\n")
-            f.write(f"Figure Type: {metric_df['figure_type'].iloc[0]}\n")
-            f.write(f"QA Type: {metric_df['qa_type'].iloc[0]}\n")
-            metric_df.to_csv(f, index=False, quoting=csv.QUOTE_ALL)
-            f.write("\n")

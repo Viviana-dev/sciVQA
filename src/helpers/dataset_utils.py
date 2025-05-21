@@ -6,6 +6,7 @@ from zipfile import ZipFile
 
 import pandas as pd
 import requests
+from datasets import load_dataset
 from torch.utils.data import Dataset
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
@@ -136,6 +137,136 @@ class SciVQAEvaluationDataset(Dataset):
         """
         entry = self.table.iloc[idx]
         dialog = convert_to_conversation(entry, split=self.split, add_answer=False)
+        return {
+            "instance_id": entry["instance_id"],
+            "messages": dialog,
+            "answer": entry.get("answer", ""),
+        }
+
+    def collate_fn(self, batch: list[dict[str, any]]) -> dict[str, any]:
+        """
+        Collate a batch of examples into batched lists.
+
+        Parameters
+        ----------
+        batch : list[dict[str, any]]
+            A list of dataset items each containing 'instance_id', 'messages', and 'answer'.
+
+        Returns
+        -------
+        dict[str, any]
+            A dictionary with batched 'instance_id', 'messages', and 'answer'.
+        """
+        return {
+            "instance_id": [item["instance_id"] for item in batch],
+            "messages": [item["messages"] for item in batch],
+            "answer": [item["answer"] for item in batch],
+        }
+
+
+def convert_to_conversation_chartqa(entry: pd.Series, split: str, add_answer: bool = False) -> list[dict[str, any]]:
+    """
+    Convert a dataset entry into a conversation format for the Vision Language Model.
+
+    Parameters
+    ----------
+    entry : pd.Series
+        A row from the dataset containing fields like 'image_file' and possibly 'answer'.
+    split : str
+        The data split ('train', 'validation', or 'test') indicating which images to load.
+    add_answer : bool, default False
+        Whether to include the correct answer in the conversation.
+
+    Returns
+    -------
+    list[dict[str, any]]
+        A list of dictionaries representing the conversation messages for system, user, and optionally assistant.
+    """
+    prompt_text = build_dynamic_prompt(entry)
+
+    system_message: str = """You are a Vision Language Model specialized in interpreting visual data from chart images.
+Your task is to analyze the provided chart image and respond to queries with concise answers, usually a single word, number, or short phrase.
+The charts include a variety of types (e.g., line charts, bar charts) and contain colors, labels, and text.
+Focus on delivering accurate, succinct answers based on the visual information. Avoid additional explanation unless absolutely necessary."""
+
+    conversation: list[dict[str, any]] = [
+        {
+            "role": "system",
+            "content": [
+                {
+                    "type": "text",
+                    "text": system_message,
+                }
+            ],
+        },
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "image",
+                    "image": entry["image_file"],
+                },
+                {
+                    "type": "text",
+                    "text": prompt_text,
+                },
+            ],
+        },
+    ]
+    if add_answer:
+        conversation.append(
+            {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": entry.get("answer", ""),
+                    },
+                ],
+            },
+        )
+    return conversation
+
+
+class ChartQAEvaluationDataset(Dataset):
+    def __init__(self, split: Literal["train", "validation", "test"] = "train") -> None:
+        """
+        Initialize the evaluation dataset for ChartQA.
+
+        Parameters
+        ----------
+        split : Literal["train", "validation", "test"], default "train"
+            The dataset split to load.
+
+        Raises
+        ------
+        ValueError
+            If split is not one of 'train', 'validation', or 'test'.
+        """
+        self.split = split
+        if split not in ["train", "validation", "test"]:
+            raise ValueError(f"Invalid split: {split}. Must be one of ['train', 'validation', 'test']")
+        if split == "validation":
+            self.split = "val"
+            split = "val"
+
+        ds = load_dataset("HuggingFaceM4/ChartQA", split=split)
+        self.table = pd.DataFrame(ds)
+        # rename the columns to match the SciVQA dataset
+        self.table.rename(columns={"image": "image_file", "query": "question", "label": "answer"}, inplace=True)
+        # add the instance_id column with the row index of the dataframe
+        self.table["instance_id"] = self.table.index.to_list()
+        # convert type of instance_id to string
+        self.table["instance_id"] = self.table["instance_id"].astype(str)
+        # convert the answer from list to string if it is a one element list
+        self.table["answer"] = self.table["answer"].apply(lambda x: x[0] if isinstance(x, list) and len(x) == 1 else x)
+
+    def __len__(self) -> int:
+        return len(self.table)
+
+    def __getitem__(self, idx: int) -> dict[str, any]:
+        entry = self.table.iloc[idx]
+        dialog = convert_to_conversation_chartqa(entry, split=self.split, add_answer=False)
         return {
             "instance_id": entry["instance_id"],
             "messages": dialog,
@@ -375,3 +506,8 @@ def load_real_image_path(dataset_path: str, train: bool = False, test: bool = Fa
     if not path.exists(image_path):
         raise ValueError(f"Image path {image_path} does not exist")
     return image_path
+
+
+if __name__ == "__main__":
+    dataset = ChartQAEvaluationDataset(split="validation")
+    print(dataset[0])

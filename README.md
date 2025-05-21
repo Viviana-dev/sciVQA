@@ -147,6 +147,13 @@ Update CoT
 `"target_modules": ["mlp.0", "mlp.2", "qkv", "attn.proj", "gate_proj", "up_proj", "q_proj", "v_proj", "k_proj", "down_proj","o_proj"]`\
 72B model,targe_modules = "all-linear"
 
+✅ Version 23: [config](LoRa_versions/Version_23/adapter_config.json)\
+`"target_modules": "^(?!.*visual).*(?:o_proj|up_proj|v_proj|down_proj|k_proj|q_proj|gate_proj).*"`\
+Update Instruction to be more general
+
+✅ Version 24: \
+Test the Version 23 Model with ChartQA dataset
+
 
 ## Error analysis
 [error_analysis/error_analysis_zeroshot_no-ocr-v4.xlxs](error_analysis/error_analysis_zeroshot_no-ocr-v4.xlsx): error analysis of the best zero-shot generated data

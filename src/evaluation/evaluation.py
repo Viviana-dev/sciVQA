@@ -20,7 +20,7 @@ sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 from evaluation.scoring import compute_evaluation_scores
 from helpers.constants import BASE_PATH, PREDICITION_PATH, SPECIAL_TOKENS
-from helpers.dataset_utils import SciVQAEvaluationDataset
+from helpers.dataset_utils import ChartQAEvaluationDataset, SciVQAEvaluationDataset
 from helpers.logging_utils import setup_logger
 from helpers.qwen_util import custom_process_vision_info
 
@@ -85,6 +85,7 @@ def evaluate_model(
     dataset_type: Literal["train", "validation", "test"] = "validation",
     accelerator: Accelerator | None = None,
     dataset_len: int = 0,
+    dataset_name: Literal["scivqa", "chartqa"] = "scivqa",
 ) -> list[dict[str, str]]:
     """
     Run model evaluation over batches and save mispredicted samples.
@@ -105,6 +106,8 @@ def evaluate_model(
         Accelerator instance for distributed evaluation.
     dataset_len : int, default 0
         Total number of samples for progress bar.
+    dataset_name : Literal["scivqa", "chartqa"], default "scivqa"
+        Name of the dataset being evaluated.
 
     Returns
     -------
@@ -145,14 +148,18 @@ def evaluate_model(
         for answer, instance_id, gold_answer, message in zip(answers, instance_ids, gold_answers, messages):
             results.append({"instance_id": instance_id, "answer_pred": answer})
             if dataset_type != "test":
-                save_path = Path(path.join(save_sample_path, instance_id))
-                maybe_create_dir(save_path, print_log=False)
-                prompt_file_path = path.join(save_path, "prompt.txt")
-                image_file_path = path.join(save_path, "image.png")
-                root_image_path = message[1]["content"][0]["image"]
-                image = Image.open(root_image_path).convert("RGB")
-                image.save(image_file_path)
                 if answer != gold_answer:
+                    save_path = Path(path.join(save_sample_path, instance_id))
+                    maybe_create_dir(save_path, print_log=False)
+                    prompt_file_path = path.join(save_path, "prompt.txt")
+                    image_file_path = path.join(save_path, "image.png")
+                    if dataset_name == "scivqa":
+                        root_image_path = message[1]["content"][0]["image"]
+                        image = Image.open(root_image_path).convert("RGB")
+                        image.save(image_file_path)
+                    elif dataset_name == "chartqa":
+                        image = message[1]["content"][0]["image"].convert("RGB")
+                        image.save(image_file_path)
                     with open(prompt_file_path, "w") as f:
                         f.write(f"Prompt: {message[1]['content'][1]['text']}\n")
                         f.write(f"Response: {answer}\n")
@@ -175,6 +182,7 @@ def evaluate_model_predictions(
     accelerate: bool = False,
     scoring: bool = True,
     batch_size: int = 1,
+    dataset_name: Literal["scivqa", "chartqa"] = "scivqa",
 ):
     """
     Load model and dataset, perform evaluation, and save or score predictions.
@@ -195,13 +203,20 @@ def evaluate_model_predictions(
         Whether to compute and log evaluation scores.
     batch_size : int, default 1
         Batch size for DataLoader.
+    dataset_name : Literal["scivqa", "chartqa"], default "scivqa"
+        Name of the dataset to evaluate.
     """
     accelerator = Accelerator() if accelerate else None
 
     global logger
     logger = setup_logger(__name__, level=logging.INFO, accelerator=accelerator)
 
-    dataset = SciVQAEvaluationDataset(split=dataset_type)
+    if dataset_name == "scivqa":
+        dataset = SciVQAEvaluationDataset(split=dataset_type)
+    elif dataset_name == "chartqa":
+        dataset = ChartQAEvaluationDataset(split=dataset_type)
+    else:
+        raise ValueError(f"Unsupported dataset name: {dataset_name}")
     dataloader = DataLoader(dataset, batch_size=batch_size, collate_fn=dataset.collate_fn, pin_memory=True)
     device_map = None if accelerator else "auto"
 
@@ -240,7 +255,7 @@ def evaluate_model_predictions(
     sample_path = Path(path.join(BASE_PATH, "sample", version))
 
     results = evaluate_model(
-        processor, model, sample_path, dataloader, dataset_type, accelerator, len(dataset) // batch_size
+        processor, model, sample_path, dataloader, dataset_type, accelerator, len(dataset) // batch_size, dataset_name
     )
 
     # Gather results if using accelerator
@@ -257,6 +272,6 @@ def evaluate_model_predictions(
         df = pd.DataFrame(all_results)
         maybe_save_csv(df, path.join(PREDICITION_PATH, "predictions", "predictions.csv"))
         if scoring and dataset_type != "test":
-            compute_evaluation_scores(version=version)
+            compute_evaluation_scores(version=version, dataset_name=dataset_name)
         if accelerator:
             accelerator.end_training()

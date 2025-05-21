@@ -22,13 +22,13 @@ if not OUTPUT_DIR.exists():
     makedirs(OUTPUT_DIR, exist_ok=True)
 BATCH_SIZE = 6
 GRAD_ACC = 4
-EPOCHS = 0.1
+EPOCHS = 2
 LR = 2e-4
 DTYPE = torch.bfloat16
 LORA_RANK = 64
 LORA_ALPHA = 32
 LORA_DROPOUT = 0.05
-TARGET_MODULES = "all-linear"
+TARGET_MODULES = r"^(?!.*visual).*(?:o_proj|up_proj|v_proj|down_proj|k_proj|q_proj|gate_proj).*"
 ACCELERATE = True
 
 
