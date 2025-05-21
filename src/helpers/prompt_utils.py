@@ -1,19 +1,22 @@
 import ast
-import random
 import re
-import sys
-from os import path
-from pathlib import Path
-
-from PIL import Image
-
-sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
-
-
-from helpers.data_load import load_real_image_path
 
 
 def parse_qa_types(qa_type_raw: str) -> set[str]:
+    """
+    Parse the QA type string to identify the types of questions.
+    The function looks for specific tokens in the input string and returns a set of identified types.
+
+    Parameters
+    ----------
+    qa_type_raw : str
+        The raw QA type string to be parsed.
+
+    Returns
+    -------
+    set[str]
+        A set of identified QA types based on the input string.
+    """
     qa_str = str(qa_type_raw).lower()
 
     ordered_tokens = [
@@ -39,9 +42,24 @@ def parse_qa_types(qa_type_raw: str) -> set[str]:
     return found
 
 
-def build_dynamic_prompt(entry, split="validation", save_sample_path: Path = None):
-    instance_id = entry["instance_id"]
-    image_path = entry["image_file"]
+def build_dynamic_prompt(entry: dict) -> str:
+    """
+    Build a dynamic prompt for the model based on the provided entry.
+    The prompt includes information about the figure type, caption, question,
+    and specific instructions based on the QA type.
+    The function also includes reasoning steps for the model to follow.
+
+    Parameters
+    ----------
+    entry : dict
+        A dictionary containing the information needed to build the prompt.
+        Based on the Dataset format from SciVQA
+
+    Returns
+    -------
+    str
+        The constructed prompt string.
+    """
     question = entry["question"]
     qa_type_raw = entry["qa_pair_type"]
     caption = entry.get("caption", "")
@@ -49,7 +67,6 @@ def build_dynamic_prompt(entry, split="validation", save_sample_path: Path = Non
     compound = entry.get("compound", False)
     figs_numb = entry.get("figs_numb", 0)
     answer_options = entry.get("answer_options", "")
-    random_state: bool = random.choice([True, False])
 
     qa_types = parse_qa_types(qa_type_raw)
 
@@ -100,17 +117,4 @@ def build_dynamic_prompt(entry, split="validation", save_sample_path: Path = Non
         "<answer>\n"
     )
 
-    if random_state and save_sample_path:
-        save_path = Path(path.join(save_sample_path, instance_id))
-        save_path.mkdir(parents=True, exist_ok=True)
-        prompt_file_path = path.join(save_path, "prompt.txt")
-        image_file_path = path.join(save_path, "image.png")
-        root_image_path = load_real_image_path(image_path, **{split: True})
-        image = Image.open(root_image_path).convert("RGB")
-        image.save(image_file_path)
-        with open(prompt_file_path, "w", encoding="utf-8") as f:
-            f.write(f"QA-Type: {qa_type_raw}")
-            f.write(f"Figure type: {figure_type}")
-            f.write(f"\n\n{prompt}")
-
-    return prompt.strip(), random_state
+    return prompt.strip()

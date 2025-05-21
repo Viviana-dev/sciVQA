@@ -7,22 +7,28 @@ import pandas as pd
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
-from metrics import bertS, rouge
-
+from evaluation.metrics import bertS, rouge
 from helpers.constants import METRIC_PATH, PREDICITION_PATH, SCORES_PATH
-from helpers.data_load import load_datasets
+from helpers.dataset_utils import load_datasets
+from helpers.logging_utils import setup_logger
+
+logger = setup_logger(__name__)
 
 
 def generate_golden_file():
+    """Generate a golden file for evaluation.
+    The golden file contains the expected answers for the validation dataset.
+    It is used to compute the evaluation scores.
+    """
     validation_ds = load_datasets(validation=True, train=False, test=False)
     golden_file_path = path.join(PREDICITION_PATH, "golden", "golden.json")
     if path.exists(golden_file_path):
-        print(f"Golden file already exists at {golden_file_path}")
+        logger.info(f"Golden file already exists at {golden_file_path}")
         return
     else:
-        print(f"Creating golden file at {golden_file_path}")
+        logger.info(f"Creating golden file at {golden_file_path}")
         if not path.exists(path.dirname(golden_file_path)):
-            print(f"Creating directory: {path.dirname(golden_file_path)}")
+            logger.info(f"Creating directory: {path.dirname(golden_file_path)}")
             makedirs(path.dirname(golden_file_path))
         golden_df = pd.DataFrame(columns=["instance_id", "answer"])
         for i, row in validation_ds.iterrows():
@@ -45,10 +51,20 @@ def generate_golden_file():
                 ignore_index=True,
             )
         golden_df.to_json(golden_file_path, orient="records")
-        print(f"Golden file created at {golden_file_path}")
+        logger.info(f"Golden file created at {golden_file_path}")
 
 
 def compute_evaluation_scores(version: str):
+    """Compute evaluation scores for the given version.
+    The scores are computed using the ROUGE and BERTScore metrics.
+    The scores are saved to a file in the Scores_versions directory.
+
+    Parameters
+    ----------
+    version : str
+        The version of the model to evaluate.
+    """
+
     scores_path = path.join(SCORES_PATH, version)
     if not path.exists(scores_path):
         makedirs(scores_path)
@@ -86,25 +102,40 @@ def compute_evaluation_scores(version: str):
     bert_score_f1, bert_score_precision, bert_score_recall, merged = bertS(predictions, references, merged)
 
     output_file.write("rouge1.f1: " + str(rouge1_score_f1) + "\n")
-    print(f"rouge1.f1: {rouge1_score_f1}")
     output_file.write("rouge1.precision: " + str(rouge1_score_precision) + "\n")
-    print(f"rouge1.precision: {rouge1_score_precision}")
     output_file.write("rouge1.recall: " + str(rouge1_score_recall) + "\n")
-    print(f"rouge1.recall: {rouge1_score_recall}")
 
     output_file.write("rougeL.f1: " + str(rougeL_score_f1) + "\n")
-    print(f"rougeL.f1: {rougeL_score_f1}")
     output_file.write("rougeL.precision: " + str(rougeL_score_precision) + "\n")
-    print(f"rougeL.precision: {rougeL_score_precision}")
     output_file.write("rougeL.recall: " + str(rougeL_score_recall) + "\n")
-    print(f"rougeL.recall: {rougeL_score_recall}")
 
     output_file.write("bertS.f1: " + str(bert_score_f1) + "\n")
-    print(f"bertS.f1: {bert_score_f1}")
     output_file.write("bertS.precision: " + str(bert_score_precision) + "\n")
-    print(f"bertS.precision: {bert_score_precision}")
     output_file.write("bertS.recall: " + str(bert_score_recall) + "\n")
-    print(f"bertS.recall: {bert_score_recall}")
+
+    metrics_df = pd.DataFrame(
+        [
+            {
+                "Metric": "ROUGE-1",
+                "F1 (%)": round(rouge1_score_f1 * 100, 3),
+                "Precision (%)": round(rouge1_score_precision * 100, 3),
+                "Recall (%)": round(rouge1_score_recall * 100, 3),
+            },
+            {
+                "Metric": "ROUGE-L",
+                "F1 (%)": round(rougeL_score_f1 * 100, 3),
+                "Precision (%)": round(rougeL_score_precision * 100, 3),
+                "Recall (%)": round(rougeL_score_recall * 100, 3),
+            },
+            {
+                "Metric": "BERTScore",
+                "F1 (%)": round(bert_score_f1 * 100, 3),
+                "Precision (%)": round(bert_score_precision * 100, 3),
+                "Recall (%)": round(bert_score_recall * 100, 3),
+            },
+        ]
+    )
+    logger.info("\n%s", metrics_df.to_string(index=False))
 
     output_file.close()
     list_of_metric_dfs = []
@@ -135,7 +166,7 @@ def compute_evaluation_scores(version: str):
     # join the dataframe on one csv and add a headline to every csv table
     metrics_path = Path(path.join(METRIC_PATH, version, "metrics.csv"))
     if not path.exists(path.dirname(metrics_path)):
-        print(f"Creating directory: {path.dirname(metrics_path)}")
+        logger.info(f"Creating directory: {path.dirname(metrics_path)}")
         makedirs(path.dirname(metrics_path))
     with open(metrics_path, "w") as f:
         for i, metric_df in enumerate(list_of_metric_dfs):
@@ -145,7 +176,3 @@ def compute_evaluation_scores(version: str):
             f.write(f"QA Type: {metric_df['qa_type'].iloc[0]}\n")
             metric_df.to_csv(f, index=False, quoting=csv.QUOTE_ALL)
             f.write("\n")
-
-
-if __name__ == "__main__":
-    compute_evaluation_scores(version="Version_22")

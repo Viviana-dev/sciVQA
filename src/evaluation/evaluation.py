@@ -1,7 +1,6 @@
 import csv
-import shutil
+import logging
 import sys
-from asyncio import gather
 from os import makedirs, path
 from pathlib import Path
 from typing import Literal
@@ -11,34 +10,70 @@ import torch
 from accelerate import Accelerator
 from accelerate.utils import gather_object
 from peft import PeftModel
+from PIL import Image
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 from transformers import AutoModelForImageTextToText, AutoProcessor
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
-from dataset import SciVQAConversationDataset
-from scoring import compute_evaluation_scores
 
-from helpers.constants import BASE_PATH, LORA_PATH, PREDICITION_PATH
+from evaluation.scoring import compute_evaluation_scores
+from helpers.constants import BASE_PATH, PREDICITION_PATH, SPECIAL_TOKENS
+from helpers.dataset_utils import SciVQAEvaluationDataset
+from helpers.logging_utils import setup_logger
 from helpers.qwen_util import custom_process_vision_info
+
+logger = setup_logger(__name__)
 
 
 def strip_cot(text: str) -> str:
+    """
+    Strip chain-of-thought prefix up to <answer> tag.
+
+    Parameters
+    ----------
+    text : str
+        Generated text possibly containing a '<answer>' tag.
+
+    Returns
+    -------
+    str
+        The substring after '<answer>' tag, or the original text stripped.
+    """
     if "<answer>" in text:
         return text.split("<answer>", 1)[1].strip()
     return text.strip()
 
 
-def _maybe_create_dir(dir_path: str):
+def maybe_create_dir(dir_path: str, print_log: bool = True):
+    """
+    Create a directory if it does not exist.
+
+    Parameters
+    ----------
+    dir_path : str
+        Path to the directory to create.
+    """
     if not path.exists(dir_path):
-        print(f"Creating directory: {dir_path}")
+        if print_log:
+            logger.info(f"Creating directory: {dir_path}")
         makedirs(dir_path)
 
 
-def _maybe_save_csv(df: pd.DataFrame, file_path: str):
+def maybe_save_csv(df: pd.DataFrame, file_path: str):
+    """
+    Save a DataFrame to CSV and log the action.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame to save to CSV.
+    file_path : str
+        Destination path for the CSV file.
+    """
     df.to_csv(file_path, index=False, quoting=csv.QUOTE_ALL)
-    print(f"Predictions saved to {file_path}")
+    logger.info(f"Predictions saved to {file_path}")
 
 
 @torch.inference_mode()
@@ -50,14 +85,39 @@ def evaluate_model(
     dataset_type: Literal["train", "validation", "test"] = "validation",
     accelerator: Accelerator | None = None,
     dataset_len: int = 0,
-):
+) -> list[dict[str, str]]:
+    """
+    Run model evaluation over batches and save mispredicted samples.
+
+    Parameters
+    ----------
+    processor : AutoProcessor
+        Processor for preparing inputs and decoding outputs.
+    model : AutoModelForImageTextToText
+        The image-text model used for generation.
+    save_sample_path : Path
+        Directory path to save sample prompts and images.
+    batches : DataLoader
+        DataLoader providing evaluation batches.
+    dataset_type : Literal["train", "validation", "test"], default "validation"
+        Split type being evaluated.
+    accelerator : Accelerator or None, optional
+        Accelerator instance for distributed evaluation.
+    dataset_len : int, default 0
+        Total number of samples for progress bar.
+
+    Returns
+    -------
+    list[dict[str, str]]
+        A list of prediction dicts containing 'instance_id' and 'answer_pred'.
+    """
     processor.tokenizer.padding_side = "left"
     pbar = tqdm(total=dataset_len, desc="Evaluating", unit="Question", unit_scale=True)
     results = []
     for batch in batches:
-        instance_ids = batch["instance_id"]
-        messages = batch["messages"]
-        gold_answers = batch["answer"]
+        instance_ids: list[str] = batch["instance_id"]
+        messages: list[list[dict[str, any]]] = batch["messages"]
+        gold_answers: list[str] = batch["answer"]
 
         texts = [processor.apply_chat_template(msg, tokenize=False, add_generation_prompt=True) for msg in messages]
         images, _ = custom_process_vision_info(messages=messages)
@@ -81,18 +141,22 @@ def evaluate_model(
         )
         answers = [strip_cot(output) for output in raw_outputs]
 
-        for answer, instance_id, gold_answer in zip(answers, instance_ids, gold_answers):
+        # Save wrong predicted samples with prompt and image
+        for answer, instance_id, gold_answer, message in zip(answers, instance_ids, gold_answers, messages):
             results.append({"instance_id": instance_id, "answer_pred": answer})
             if dataset_type != "test":
                 save_path = Path(path.join(save_sample_path, instance_id))
+                maybe_create_dir(save_path, print_log=False)
                 prompt_file_path = path.join(save_path, "prompt.txt")
-                if path.exists(prompt_file_path):
-                    if answer == gold_answer:
-                        shutil.rmtree(save_path)
-                    else:
-                        with open(prompt_file_path, "a", encoding="utf-8") as f:
-                            f.write(f"\n\n\nAnswer: {answer}")
-                            f.write(f"\nGold answer: {gold_answer}")
+                image_file_path = path.join(save_path, "image.png")
+                root_image_path = message[1]["content"][0]["image"]
+                image = Image.open(root_image_path).convert("RGB")
+                image.save(image_file_path)
+                if answer != gold_answer:
+                    with open(prompt_file_path, "w") as f:
+                        f.write(f"Prompt: {message[1]['content'][1]['text']}\n")
+                        f.write(f"Response: {answer}\n")
+                        f.write(f"Gold Answer: {gold_answer}\n")
 
         if accelerator:
             accelerator.wait_for_everyone()
@@ -112,18 +176,37 @@ def evaluate_model_predictions(
     scoring: bool = True,
     batch_size: int = 1,
 ):
-    accelerator = Accelerator() if accelerate else None
-    if accelerator and accelerator.is_main_process:
-        print("Accelerator is initialized.")
-    elif accelerator is None:
-        print("Accelerator is not initialized.")
+    """
+    Load model and dataset, perform evaluation, and save or score predictions.
 
-    dataset = SciVQAConversationDataset(split=dataset_type)
+    Parameters
+    ----------
+    adapter_path : str or None
+        Path to adapter for fine-tuning; if None, use zero-shot evaluation.
+    model_name : str
+        Pretrained model name or identifier.
+    version : str
+        Version identifier for saving predictions.
+    dataset_type : Literal["train", "validation", "test"], default "validation"
+        Split to evaluate.
+    accelerate : Boolean , default False
+        Whether to use an accelerator for distributed evaluation.
+    scoring : bool, default True
+        Whether to compute and log evaluation scores.
+    batch_size : int, default 1
+        Batch size for DataLoader.
+    """
+    accelerator = Accelerator() if accelerate else None
+
+    global logger
+    logger = setup_logger(__name__, level=logging.INFO, accelerator=accelerator)
+
+    dataset = SciVQAEvaluationDataset(split=dataset_type)
     dataloader = DataLoader(dataset, batch_size=batch_size, collate_fn=dataset.collate_fn, pin_memory=True)
-    device_map = {"": accelerator.process_index} if accelerate else "auto"
+    device_map = None if accelerator else "auto"
 
     if adapter_path is None:
-        print("Start Zero Shot Evaluation...")
+        logger.info("Start Zero Shot Evaluation...")
         processor = AutoProcessor.from_pretrained(model_name, use_fast=False)
         model = AutoModelForImageTextToText.from_pretrained(
             model_name,
@@ -140,8 +223,7 @@ def evaluate_model_predictions(
             device_map=device_map,
         )
 
-        special_tokens_dict = {"additional_special_tokens": ["<box>", "</box>", "<thinking>", "<answer>"]}
-        processor.tokenizer.add_special_tokens(special_tokens_dict)
+        processor.tokenizer.add_special_tokens(SPECIAL_TOKENS)
         base_model.resize_token_embeddings(len(processor.tokenizer))
 
         model = PeftModel.from_pretrained(
@@ -153,54 +235,28 @@ def evaluate_model_predictions(
 
     if accelerator:
         model, dataloader = accelerator.prepare(model, dataloader)
-
-    # model.eval()
-    sample_path = Path(path.join(BASE_PATH, "sample", version))
-
-    if accelerate:
         accelerator.wait_for_everyone()
+
+    sample_path = Path(path.join(BASE_PATH, "sample", version))
 
     results = evaluate_model(
         processor, model, sample_path, dataloader, dataset_type, accelerator, len(dataset) // batch_size
     )
 
-    if accelerate:
+    # Gather results if using accelerator
+    if accelerator:
         accelerator.wait_for_everyone()
-        gathered_results = gather_object(results) if accelerator else results
-
-    if accelerate and accelerator.is_main_process:
-        print("Gathered results len:", len(gathered_results))
-        prediction_dir = path.dirname(path.join(PREDICITION_PATH, "predictions", "predictions.csv"))
-        _maybe_create_dir(prediction_dir)
-
-        df = pd.DataFrame(gathered_results)
-        _maybe_save_csv(df, path.join(PREDICITION_PATH, "predictions", "predictions.csv"))
-
-        if scoring:
-            if TYPE != "test":
-                compute_evaluation_scores(version=VERSION)
+        all_results = gather_object(results)
     else:
-        print("Results len:", len(results))
+        all_results = results
+
+    # Save predictions and optionally compute scores on the main process or when not using accelerator
+    if not accelerator or accelerator.is_main_process:
         prediction_dir = path.dirname(path.join(PREDICITION_PATH, "predictions", "predictions.csv"))
-        _maybe_create_dir(prediction_dir)
-        df = pd.DataFrame(results)
-        _maybe_save_csv(df, path.join(PREDICITION_PATH, "predictions", "predictions.csv"))
-        if scoring:
-            if TYPE != "test":
-                compute_evaluation_scores(version=VERSION)
-
-
-if __name__ == "__main__":
-    VERSION = "Version_21"
-    TYPE = "validation"  # "train", "validation", "test"
-    ADAPTER_PATH = Path(path.join(LORA_PATH, "no-ocr-v4", VERSION, "model"))
-    MODEL_NAME = "Qwen/Qwen2.5-VL-7B-Instruct"
-    evaluate_model_predictions(
-        adapter_path=ADAPTER_PATH,
-        model_name=MODEL_NAME,
-        version=VERSION,
-        dataset_type=TYPE,  # "train", "validation", "test"
-        accelerate=True,
-        scoring=True,
-        batch_size=1,
-    )
+        maybe_create_dir(prediction_dir)
+        df = pd.DataFrame(all_results)
+        maybe_save_csv(df, path.join(PREDICITION_PATH, "predictions", "predictions.csv"))
+        if scoring and dataset_type != "test":
+            compute_evaluation_scores(version=version)
+        if accelerator:
+            accelerator.end_training()

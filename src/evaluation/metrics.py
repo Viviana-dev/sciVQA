@@ -1,8 +1,29 @@
+import pandas as pd
 from evaluate import load
 from rouge_score import rouge_scorer
 
 
-def rouge(predictions: list[str], references: list[str], r_type: str = "", merged=None):
+def rouge(predictions: list[str], references: list[str], r_type: str = "", merged: pd.DataFrame | None = None):
+    """Compute the ROUGE score for the given predictions and references.
+
+    Parameters
+    ----------
+    predictions : list[str]
+        List of predicted strings.
+    references : list[str]
+        List of reference strings.
+    r_type : str
+        Type of ROUGE score to compute (e.g., "rouge1", "rougeL").
+    merged : pd.DataFrame | None
+        DataFrame to store the computed scores.
+
+    Returns
+    -------
+    tuple
+        Tuple containing the F1 score, precision, recall, and the merged DataFrame (if provided else `None`).
+
+    """
+
     precision = []
     recall = []
     f1 = []
@@ -25,7 +46,23 @@ def rouge(predictions: list[str], references: list[str], r_type: str = "", merge
     return f1, precision, recall, merged
 
 
-def bertS(predictions: list[str], references: list[str], merged=None):
+def bertS(predictions: list[str], references: list[str], merged: pd.DataFrame | None = None):
+    """Compute the BERTScore for the given predictions and references.
+
+    Parameters
+    ----------
+    predictions : list[str]
+        List of predicted strings.
+    references : list[str]
+        List of reference strings.
+    merged : pd.DataFrame | None
+        DataFrame to store the computed scores.
+
+    Returns
+    -------
+    tuple
+        Tuple containing the F1 score, precision, recall, and the merged DataFrame (if provided else `None`).
+    """
     bertscore = load("bertscore")
     results = bertscore.compute(predictions=predictions, references=references, lang="en")
     precision = results["precision"]

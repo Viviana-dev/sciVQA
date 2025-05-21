@@ -1,4 +1,3 @@
-import math
 import sys
 from os import path
 from typing import Literal
@@ -11,9 +10,8 @@ from surya.settings import Settings
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
-from helpers.constants import BASE_PATH, CSV_PATH
-from helpers.data_load import load_datasets, load_real_image_path
-from preprocessing.bbox import BBox
+from helpers.bbox import BBox
+from helpers.dataset_utils import load_real_image_path
 
 _surya_recognizer: RecognitionPredictor | None = None
 _surya_detector: DetectionPredictor | None = None
@@ -22,7 +20,14 @@ Settings.DISABLE_TQDM = True
 
 
 def _get_surya_predictors() -> tuple[RecognitionPredictor, DetectionPredictor]:
-    """Return cached Surya recognition & detection predictors (GPU if avail)."""
+    """Return cached Surya recognition & detection predictors (GPU if available).
+
+    Returns
+    -------
+    tuple[RecognitionPredictor, DetectionPredictor]
+        The Surya recognition and detection predictors.
+    """
+
     global _surya_recognizer, _surya_detector
     if _surya_recognizer is None:
         _surya_recognizer = RecognitionPredictor()
@@ -34,7 +39,23 @@ def _get_surya_predictors() -> tuple[RecognitionPredictor, DetectionPredictor]:
 def extract_ocr_boxes(
     df: pd.DataFrame, conf_thr: int = 51, split: Literal["train", "test", "validation"] = "train"
 ) -> list[list[BBox]]:
-    """Run Surya OCR on all images in the DataFrame and return a list of BBox for each Image."""
+    """Run Surya OCR on all images in the DataFrame and return a list of BBox for each Image.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The DataFrame containing the image paths.
+    conf_thr : int, default 51
+        The confidence threshold for filtering OCR results.
+    split : str, default "train"
+        The split of the dataset to load images from. Can be "train", "test", or "validation".
+
+    Returns
+    -------
+    list[list[BBox]]
+        A list of lists of BBox objects, one for each image in the DataFrame.
+        Each BBox object contains the bounding box coordinates, text, and confidence score.
+    """
 
     recognizer, detector = _get_surya_predictors()
 
@@ -127,42 +148,3 @@ def visualize_ocr_boxes(
         img.show()
 
     return boxes
-
-
-if __name__ == "__main__":
-    train_df = load_datasets(train=True, test=False, validation=False)
-    test_df = load_datasets(train=False, test=True, validation=False)
-    val_df = load_datasets(train=False, test=False, validation=True)
-
-    def add_boxes_to_df(df: pd.DataFrame, split: Literal["train", "test", "validation"]) -> pd.DataFrame:
-        boxes = extract_ocr_boxes(df, conf_thr=51, split=split)
-
-        for i, box in enumerate(boxes):
-            # Transform + normalise boxes
-            ocr: list[tuple[float, float, float, float, str, int]] = []
-            scaled_bboxes: list[BBox] = []
-            for b in box:
-                xy_cords = b.to_xy()
-                ocr.append(xy_cords)
-                scaled_bboxes.append(b)
-
-            region_lines = []
-            for x1, y1, x2, y2, text, _ in ocr:
-                region_lines.append(f'<box>({x1},{y1},{x2},{y2}): "{text}"</box>')
-            region_block = "\n".join(region_lines)
-
-            # add the region block to the DataFrame
-            df.loc[i, "region_block"] = region_block
-
-        return df
-
-    def save_df_back(split: str, df: pd.DataFrame):
-        csv_path = path.join(CSV_PATH, f"{split}.csv")
-        df.to_csv(csv_path, index=False)
-
-    new_train_df = add_boxes_to_df(train_df, "train")
-    new_test_df = add_boxes_to_df(test_df, "test")
-    new_val_df = add_boxes_to_df(val_df, "validation")
-    save_df_back("train", new_train_df)
-    save_df_back("test", new_test_df)
-    save_df_back("validation", new_val_df)

@@ -7,8 +7,8 @@ from transformers import AutoProcessor, Pix2StructForConditionalGeneration
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
-from helpers.data_load import load_datasets, load_real_image_path
-from preprocessing.ocr_utils import visualize_ocr_boxes
+from helpers.dataset_utils import load_datasets, load_real_image_path
+from helpers.ocr_utils import visualize_ocr_boxes
 
 # Cached DePlot objects
 #
