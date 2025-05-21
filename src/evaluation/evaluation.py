@@ -13,7 +13,7 @@ from peft import PeftModel
 from PIL import Image
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
-from transformers import AutoModelForImageTextToText, AutoProcessor
+from transformers import AutoModelForImageTextToText, AutoProcessor, Gemma3ForConditionalGeneration
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
@@ -143,6 +143,9 @@ def evaluate_model(
             generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
         )
         answers = [strip_cot(output) for output in raw_outputs]
+        # cut at the end all `<end_of_turn>` tokens if model is Gemma3ForConditionalGeneration
+        if isinstance(model, Gemma3ForConditionalGeneration):
+            answers = [answer.split("<end_of_turn>")[0] for answer in answers]
 
         # Save wrong predicted samples with prompt and image
         for answer, instance_id, gold_answer, message in zip(answers, instance_ids, gold_answers, messages):

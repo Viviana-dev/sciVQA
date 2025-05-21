@@ -15,8 +15,8 @@ from training.gpu_cleaner import clear_memory
 
 # ---- Training Parameters ----
 
-MODEL_NAME = "Qwen/Qwen2.5-VL-7B-Instruct"
-VERSION = "Version_23"
+MODEL_NAME = "google/gemma-3-12b-it"  # "Qwen/Qwen2.5-VL-7B-Instruct"
+VERSION = "Version_25"
 OUTPUT_DIR = Path(path.join(LORA_PATH, "no-ocr-v4", VERSION))
 if not OUTPUT_DIR.exists():
     makedirs(OUTPUT_DIR, exist_ok=True)
@@ -55,13 +55,14 @@ def main():
 
     # ---- Evaluate the Model ----
     evaluate_model_predictions(
-        adapter_path=Path(path.join(OUTPUT_DIR, "model")),
+        adapter_path=None,
         model_name=MODEL_NAME,
-        version="Version_24",
+        version="Version_25",
         dataset_type="validation",
         accelerate=True,
         scoring=True,
-        dataset_name="chartqa",
+        dataset_name="scivqa",
+        # dataset_name="chartqa",
     )
 
 

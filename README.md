@@ -154,6 +154,10 @@ Update Instruction to be more general
 ✅ Version 24: \
 Test the Version 23 Model with ChartQA dataset
 
+✅ Version 25: \
+Zero-shot with Gemma3-12b-it\
+
+
 
 ## Error analysis
 [error_analysis/error_analysis_zeroshot_no-ocr-v4.xlxs](error_analysis/error_analysis_zeroshot_no-ocr-v4.xlsx): error analysis of the best zero-shot generated data
