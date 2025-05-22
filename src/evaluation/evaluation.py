@@ -232,7 +232,7 @@ def evaluate_model_predictions(
         model = AutoModelForImageTextToText.from_pretrained(
             model_name,
             torch_dtype=torch.bfloat16,
-            attn_implementation="flash_attention_2",
+            attn_implementation="eager" if "gemma" in model_name else "flash_attention_2",
             device_map=device_map,
         )
     else:

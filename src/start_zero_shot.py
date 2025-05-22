@@ -10,9 +10,9 @@ from helpers.constants import LORA_PATH
 from helpers.logging_utils import setup_logger
 
 # ---- Zero-Shot Parameters ----
-# MODEL_NAME = "google/gemma-3-12b-it"
-MODEL_NAME = "Qwen/Qwen2.5-VL-7B-Instruct"
-VERSION = "Version_26"
+MODEL_NAME = "google/gemma-3-12b-it"
+# MODEL_NAME = "Qwen/Qwen2.5-VL-7B-Instruct"
+VERSION = "Version_25"
 ACCELERATE = True
 
 
