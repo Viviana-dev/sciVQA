@@ -13,12 +13,14 @@ sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 from helpers.constants import CSV_PATH, DATA_PATH, IMAGES_PATH
 from helpers.logging_utils import setup_logger
-from helpers.prompt_utils import build_dynamic_prompt
+from helpers.prompt_utils import build_dynamic_prompt, build_general_prompt
 
 logger = setup_logger(__name__)
 
 
-def convert_to_conversation(entry: pd.Series, split: str, add_answer: bool = False) -> list[dict[str, any]]:
+def convert_to_conversation(
+    entry: pd.Series, split: str, add_answer: bool = False, dynamic: bool = False
+) -> list[dict[str, any]]:
     """
     Convert a dataset entry into a conversation format for the Vision Language Model.
 
@@ -30,14 +32,18 @@ def convert_to_conversation(entry: pd.Series, split: str, add_answer: bool = Fal
         The data split ('train', 'validation', or 'test') indicating which images to load.
     add_answer : bool, default False
         Whether to include the correct answer in the conversation.
+    dynamic : bool, default False
+        Whether to use dynamic prompts for the dataset, or the more general one, which is compatible for other datasets.
 
     Returns
     -------
     list[dict[str, any]]
         A list of dictionaries representing the conversation messages for system, user, and optionally assistant.
     """
-    prompt_text = build_dynamic_prompt(entry)
-
+    if dynamic:
+        prompt_text = build_dynamic_prompt(entry)
+    else:
+        prompt_text = build_general_prompt(entry)
     system_message: str = """You are a Vision Language Model specialized in interpreting visual data from chart images.
 Your task is to analyze the provided chart image and respond to queries with concise answers, usually a single word, number, or short phrase.
 The charts include a variety of types (e.g., line charts, bar charts) and contain colors, labels, and text.
@@ -85,7 +91,7 @@ Focus on delivering accurate, succinct answers based on the visual information. 
 
 class SciVQAEvaluationDataset(Dataset):
 
-    def __init__(self, split: Literal["train", "validation", "test"] = "train") -> None:
+    def __init__(self, split: Literal["train", "validation", "test"] = "train", dynamic: bool = False) -> None:
         """
         Initialize the evaluation dataset for SciVQA.
 
@@ -93,12 +99,15 @@ class SciVQAEvaluationDataset(Dataset):
         ----------
         split : Literal["train", "validation", "test"], default "train"
             The dataset split to load.
+        dynamic : bool, default False
+            Whether to use dynamic prompts for the dataset, or the more general one, which is compatible for other datasets.
 
         Raises
         ------
         ValueError
             If split is not one of 'train', 'validation', or 'test'.
         """
+        self.dynamic = dynamic
         self.split = split
         if split not in ["train", "validation", "test"]:
             raise ValueError(f"Invalid split: {split}. Must be one of ['train', 'validation', 'test']")
@@ -136,7 +145,7 @@ class SciVQAEvaluationDataset(Dataset):
             A dictionary with keys 'instance_id', 'messages', and 'answer'.
         """
         entry = self.table.iloc[idx]
-        dialog = convert_to_conversation(entry, split=self.split, add_answer=False)
+        dialog = convert_to_conversation(entry, split=self.split, add_answer=False, dynamic=self.dynamic)
         return {
             "instance_id": entry["instance_id"],
             "messages": dialog,
@@ -182,7 +191,7 @@ def convert_to_conversation_chartqa(entry: pd.Series, split: str, add_answer: bo
     list[dict[str, any]]
         A list of dictionaries representing the conversation messages for system, user, and optionally assistant.
     """
-    prompt_text = build_dynamic_prompt(entry)
+    prompt_text = build_general_prompt(entry)
 
     system_message: str = """You are a Vision Language Model specialized in interpreting visual data from chart images.
 Your task is to analyze the provided chart image and respond to queries with concise answers, usually a single word, number, or short phrase.
@@ -295,7 +304,7 @@ class ChartQAEvaluationDataset(Dataset):
 
 
 class SciVQATrainingDataset(Dataset):
-    def __init__(self, split: Literal["train", "validation", "test"] = "train") -> None:
+    def __init__(self, split: Literal["train", "validation", "test"] = "train", dynamic: bool = False) -> None:
         """
         Initialize the training dataset for SciVQA.
 
@@ -303,12 +312,15 @@ class SciVQATrainingDataset(Dataset):
         ----------
         split : Literal["train", "validation", "test"], default "train"
             The dataset split to load.
+        dynamic : bool, default False
+            Whether to use dynamic prompts for the dataset, or the more general one, which is compatible for other datasets.
 
         Raises
         ------
         ValueError
             If split is not one of 'train', 'validation', or 'test'.
         """
+        self.dynamic = dynamic
         self.split = split
         if split not in ["train", "validation", "test"]:
             raise ValueError(f"Invalid split: {split}. Must be one of ['train', 'validation', 'test']")
@@ -325,7 +337,7 @@ class SciVQATrainingDataset(Dataset):
 
     def __getitem__(self, idx: int) -> dict[str, any]:
         entry = self.table.iloc[idx]
-        dialog = convert_to_conversation(entry, split=self.split, add_answer=True)
+        dialog = convert_to_conversation(entry, split=self.split, add_answer=True, dynamic=self.dynamic)
         return {
             "instance_id": entry["instance_id"],
             "messages": dialog,

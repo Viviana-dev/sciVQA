@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Literal
 
 import pandas as pd
-from accelerate import Accelerator
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
@@ -42,21 +41,42 @@ def generate_golden_file(golden_file_path: str, dataset_name: Literal["scivqa", 
             logger.info(f"Creating directory: {path.dirname(golden_file_path)}")
             makedirs(path.dirname(golden_file_path))
         golden_df = pd.DataFrame(columns=["instance_id", "answer"])
-        for i, row in validation_ds.iterrows():
-            instance_id = row["instance_id"]
-            answer = row["answer"]
-            golden_df = pd.concat(
-                [
-                    golden_df,
-                    pd.DataFrame(
-                        {
-                            "instance_id": [instance_id],
-                            "answer": [answer],
-                        }
-                    ),
-                ],
-                ignore_index=True,
-            )
+        if dataset_name == "scivqa":
+            for i, row in validation_ds.iterrows():
+                instance_id = row["instance_id"]
+                answer = row["answer"]
+                qa_type = row["qa_pair_type"]
+                figure_type = row["figure_type"]
+                golden_df = pd.concat(
+                    [
+                        golden_df,
+                        pd.DataFrame(
+                            {
+                                "instance_id": [instance_id],
+                                "answer": [answer],
+                                "qa_type": [qa_type],
+                                "figure_type": [figure_type],
+                            }
+                        ),
+                    ],
+                    ignore_index=True,
+                )
+        elif dataset_name == "chartqa":
+            for i, row in validation_ds.iterrows():
+                instance_id = row["instance_id"]
+                answer = row["answer"]
+                golden_df = pd.concat(
+                    [
+                        golden_df,
+                        pd.DataFrame(
+                            {
+                                "instance_id": [instance_id],
+                                "answer": [answer],
+                            }
+                        ),
+                    ],
+                    ignore_index=True,
+                )
         golden_df.to_json(golden_file_path, orient="records")
         logger.info(f"Golden file created at {golden_file_path}")
 
@@ -148,3 +168,44 @@ def compute_evaluation_scores(version: str, dataset_name: Literal["scivqa", "cha
     logger.info("\n%s", metrics_df.to_string(index=False))
 
     output_file.close()
+
+    if dataset_name == "scivqa":
+        # If the Dataset is scivqa we can print metrics based on Graph Type and QA Type
+        list_of_metric_dfs = []
+
+        for figure_type in merged["figure_type"].unique():
+            figure_df = merged[merged["figure_type"] == figure_type]
+            metric_figure = []
+            for qa_type in figure_df["qa_type"].unique():
+                qa_df = figure_df[figure_df["qa_type"] == qa_type]
+                metric_figure.append(
+                    {
+                        "figure_type": figure_type,
+                        "qa_type": qa_type,
+                        "rouge1_fmeasure": round(qa_df["rouge1_fmeasure"].mean(), 2),
+                        "rouge1_precision": round(qa_df["rouge1_precision"].mean(), 2),
+                        "rouge1_recall": round(qa_df["rouge1_recall"].mean(), 2),
+                        "rougeL_fmeasure": round(qa_df["rougeL_fmeasure"].mean(), 2),
+                        "rougeL_precision": round(qa_df["rougeL_precision"].mean(), 2),
+                        "rougeL_recall": round(qa_df["rougeL_recall"].mean(), 2),
+                        "bertscore_f1": round(qa_df["bertscore_f1"].mean(), 2),
+                        "bertscore_precision": round(qa_df["bertscore_precision"].mean(), 2),
+                        "bertscore_recall": round(qa_df["bertscore_recall"].mean(), 2),
+                    }
+                )
+            metric_df = pd.DataFrame(metric_figure)
+            list_of_metric_dfs.append(metric_df)
+
+        # join the dataframe on one csv and add a headline to every csv table
+        metrics_path = Path(path.join(METRIC_PATH, version, "metrics.csv"))
+        if not path.exists(path.dirname(metrics_path)):
+            logger.info(f"Creating directory: {path.dirname(metrics_path)}")
+            makedirs(path.dirname(metrics_path))
+        with open(metrics_path, "w") as f:
+            for i, metric_df in enumerate(list_of_metric_dfs):
+                if i != 0:
+                    f.write("\n")
+                f.write(f"Figure Type: {metric_df['figure_type'].iloc[0]}\n")
+                f.write(f"QA Type: {metric_df['qa_type'].iloc[0]}\n")
+                metric_df.to_csv(f, index=False, quoting=csv.QUOTE_ALL)
+                f.write("\n")

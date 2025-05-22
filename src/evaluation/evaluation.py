@@ -186,6 +186,7 @@ def evaluate_model_predictions(
     scoring: bool = True,
     batch_size: int = 1,
     dataset_name: Literal["scivqa", "chartqa"] = "scivqa",
+    dynamic_prompt: bool = False,
 ):
     """
     Load model and dataset, perform evaluation, and save or score predictions.
@@ -208,6 +209,8 @@ def evaluate_model_predictions(
         Batch size for DataLoader.
     dataset_name : Literal["scivqa", "chartqa"], default "scivqa"
         Name of the dataset to evaluate.
+    dynamic_prompt : bool, default False
+        Whether to use dynamic prompts for evaluation, or the more generalized one which fits all datasets.
     """
     accelerator = Accelerator() if accelerate else None
 
@@ -215,7 +218,7 @@ def evaluate_model_predictions(
     logger = setup_logger(__name__, level=logging.INFO, accelerator=accelerator)
 
     if dataset_name == "scivqa":
-        dataset = SciVQAEvaluationDataset(split=dataset_type)
+        dataset = SciVQAEvaluationDataset(split=dataset_type, dynamic=dynamic_prompt)
     elif dataset_name == "chartqa":
         dataset = ChartQAEvaluationDataset(split=dataset_type)
     else:

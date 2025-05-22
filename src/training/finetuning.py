@@ -42,6 +42,7 @@ def trainLoraModel(
     lora_dropout: float = 0.05,
     target_modules: list[str] | str = "all-linear",
     accelerate: bool = False,
+    dynmaic_prompt: bool = False,
 ):
     """
     Train a LoRA model using the specified parameters.
@@ -74,6 +75,8 @@ def trainLoraModel(
         The target modules for the LoRA model.
     accelerate : Boolean, default False
         Whether to use the accelerator for distributed training.
+    dynmaic_prompt : bool, default False
+        Whether to use dynamic prompts for training.
     """
     kwargs = DistributedDataParallelKwargs(find_unused_parameters=False)
     accelerator = None if not accelerate else Accelerator(kwargs_handlers=[kwargs], log_with="wandb")
@@ -87,8 +90,8 @@ def trainLoraModel(
     torch.manual_seed(42)
 
     # Load the SciVQA conversation‑style datasets
-    train_dataset: Dataset = SciVQATrainingDataset(split="train")
-    eval_dataset: Dataset = SciVQATrainingDataset(split="validation")
+    train_dataset: Dataset = SciVQATrainingDataset(split="train", dynamic=dynmaic_prompt)
+    eval_dataset: Dataset = SciVQATrainingDataset(split="validation", dynamic=dynmaic_prompt)
 
     # check if model exist or if it is empty
     accelerator.wait_for_everyone()

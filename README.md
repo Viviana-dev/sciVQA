@@ -157,6 +157,9 @@ Test the Version 23 Model with ChartQA dataset
 ✅ Version 25: \
 Zero-shot with Gemma3-12b-it\
 
+✅ Version 26: \
+Zero-shot with Qwen2.5-VL-7B-Instruct
+
 
 
 ## Error analysis
