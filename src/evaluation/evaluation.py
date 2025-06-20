@@ -46,7 +46,7 @@ def strip_cot(text: str) -> str:
     return text.strip()
 
 
-def maybe_create_dir(dir_path: str, print_log: bool = True):
+def maybe_create_dir(dir_path: Path | str, print_log: bool = True):
     """
     Create a directory if it does not exist.
 
@@ -79,7 +79,7 @@ def maybe_save_csv(df: pd.DataFrame, file_path: str):
 @torch.inference_mode()
 def evaluate_model(
     processor: AutoProcessor,
-    model: AutoModelForImageTextToText,
+    model: AutoModelForImageTextToText | PeftModel,
     save_sample_path: Path,
     batches: DataLoader,
     dataset_type: Literal["train", "validation", "test"] = "validation",
@@ -178,7 +178,7 @@ def evaluate_model(
 
 
 def evaluate_model_predictions(
-    adapter_path: str | None,
+    adapter_path: str | Path | None,
     model_name: str,
     version: str,
     dataset_type: Literal["train", "validation", "test"] = "validation",
