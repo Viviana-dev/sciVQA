@@ -19,7 +19,7 @@ QwenChart is fine-tuned to understand and answer questions about scientific char
 QwenChart has undergone extensive experimentation through 26 LoRA-based instructen-tuning versions. Key modifications included adjustments to target modules, inclusion/exclusion of OCR and auxiliary datasets, prompt engineering, and distributed training enhancements.
 
 ### Best performing model
-The best performing model is **Version 21** with the following configuration:
+The best performing model is **Version 21** with the following configuration:\
 **Target Modules**: `^(?!.*visual).*(?:o_proj|up_proj|v_proj|down_proj|k_proj|q_proj|gate_proj).*`\
 [**Config**](LoRa_versions/Version_21/adapter_config.json) | [**Scores**](Scores_versions/Version_21/scores.txt)
 
